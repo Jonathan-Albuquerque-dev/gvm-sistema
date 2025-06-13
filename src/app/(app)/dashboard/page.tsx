@@ -8,7 +8,6 @@ import { PageHeader } from '@/components/layout/page-header';
 import { DollarSign, FileText, CheckCircle2, Clock3, PlusCircle, ArrowRight, Loader2 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
-import { MOCK_SALES_DATA } from '@/lib/mock-data'; 
 import { useEffect, useState, useMemo } from 'react';
 import type { SalesData, Budget } from '@/types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -16,8 +15,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, orderBy, limit, where } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy } from 'firebase/firestore'; // Removed limit and where as we process all budgets
 import { useToast } from '@/hooks/use-toast';
+import { format, subMonths, startOfMonth } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const chartConfig = {
   totalSales: {
@@ -36,13 +37,10 @@ const statusLabels: Record<Budget['status'], string> = {
 export default function DashboardPage() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isLoadingBudgets, setIsLoadingBudgets] = useState(true);
-  const [salesData, setSalesData] = useState<SalesData[]>([]); 
   const [timeRange, setTimeRange] = useState<string>("6months");
   const { toast } = useToast();
 
   useEffect(() => {
-    setSalesData(MOCK_SALES_DATA);
-
     setIsLoadingBudgets(true);
     const budgetsQuery = query(collection(db, 'budgets'), orderBy('createdAt', 'desc'));
 
@@ -75,7 +73,9 @@ export default function DashboardPage() {
     const currentYear = new Date().getFullYear();
     return budgets
       .filter(b => {
-        const budgetDate = new Date(b.updatedAt); 
+        // Use updatedAt if available and budget is approved, otherwise createdAt for recent drafts.
+        // For revenue, it should ideally be based on approval date.
+        const budgetDate = b.updatedAt ? new Date(b.updatedAt) : new Date(b.createdAt);
         return b.status === 'approved' && 
                budgetDate.getMonth() === currentMonth &&
                budgetDate.getFullYear() === currentYear;
@@ -88,6 +88,40 @@ export default function DashboardPage() {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 5);
   }, [budgets]);
+
+  const displaySalesData = useMemo(() => {
+    const approvedBudgets = budgets.filter(b => b.status === 'approved');
+    const salesByMonthYear: Record<string, number> = {};
+
+    approvedBudgets.forEach(budget => {
+      // Assuming updatedAt reflects the date the budget was approved or became a sale
+      const date = new Date(budget.updatedAt || budget.createdAt); 
+      const monthYearKey = format(date, 'yyyy-MM');
+      salesByMonthYear[monthYearKey] = (salesByMonthYear[monthYearKey] || 0) + budget.totalAmount;
+    });
+
+    let numMonthsToDisplay = 6; // Default
+    if (timeRange === "1month") numMonthsToDisplay = 1;
+    else if (timeRange === "3months") numMonthsToDisplay = 3;
+    else if (timeRange === "12months") numMonthsToDisplay = 12;
+
+    const chartData: SalesData[] = [];
+    const currentDate = new Date();
+
+    for (let i = 0; i < numMonthsToDisplay; i++) {
+      const monthToProcess = startOfMonth(subMonths(currentDate, i));
+      const monthYearKey = format(monthToProcess, 'yyyy-MM');
+      // For X-axis label, use 'MMM' for simplicity as ranges are <= 12 months.
+      // If year changes within the range, it's implicitly handled by order.
+      const monthLabel = format(monthToProcess, 'MMM', { locale: ptBR });
+      
+      chartData.push({
+        month: monthLabel,
+        totalSales: salesByMonthYear[monthYearKey] || 0,
+      });
+    }
+    return chartData.reverse(); // Ensure chronological order
+  }, [budgets, timeRange]);
 
 
   const kpiCardBaseClasses = "flex flex-col items-start text-left";
@@ -175,7 +209,7 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div>
               <CardTitle>Vendas por Período</CardTitle>
-              <CardDescription>Faturamento total nos últimos meses (dados simulados).</CardDescription>
+              <CardDescription>Faturamento total de orçamentos aprovados nos últimos meses.</CardDescription>
             </div>
             <Select value={timeRange} onValueChange={setTimeRange}>
               <SelectTrigger className="w-auto h-8 text-xs">
@@ -192,14 +226,14 @@ export default function DashboardPage() {
           <CardContent className="pl-2">
             <ChartContainer config={chartConfig} className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={salesData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                <BarChart data={displaySalesData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
                   <YAxis tickFormatter={(value) => `R$${value / 1000}k`} tickLine={false} axisLine={false} tickMargin={8} />
                   <Tooltip
                     cursor={false}
                     content={<ChartTooltipContent
-                      formatter={(value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      formatter={(value) => typeof value === 'number' ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : String(value)}
                       indicator="dot"
                     />}
                   />
@@ -266,5 +300,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    

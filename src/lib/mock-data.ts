@@ -22,14 +22,15 @@ export const MOCK_PRODUCTS: Product[] = [
 // export const MOCK_CLIENTS: Client[] = [ ... ];
 
 
-export const MOCK_SALES_DATA: SalesData[] = [
-  { month: 'Jan', totalSales: 1200 },
-  { month: 'Fev', totalSales: 1900 },
-  { month: 'Mar', totalSales: 1500 },
-  { month: 'Abr', totalSales: 2800 },
-  { month: 'Mai', totalSales: 1300 },
-  { month: 'Jun', totalSales: 0 }, // Placeholder until live data is integrated here
-];
+// MOCK_SALES_DATA is no longer used by the dashboard as it now processes real budget data.
+// export const MOCK_SALES_DATA: SalesData[] = [
+//   { month: 'Jan', totalSales: 1200 },
+//   { month: 'Fev', totalSales: 1900 },
+//   { month: 'Mar', totalSales: 1500 },
+//   { month: 'Abr', totalSales: 2800 },
+//   { month: 'Mai', totalSales: 1300 },
+//   { month: 'Jun', totalSales: 0 }, 
+// ];
 
 // MOCK_EMPLOYEES removed as EmployeeList now fetches from Firebase
 // export const MOCK_EMPLOYEES: Employee[] = [
