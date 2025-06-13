@@ -1,3 +1,4 @@
+
 import type { ReactNode } from 'react';
 
 interface PageHeaderProps {
@@ -9,12 +10,12 @@ interface PageHeaderProps {
 export function PageHeader({ title, description, children }: PageHeaderProps) {
   return (
     <div className="mb-6 pb-4 border-b border-border">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold font-headline text-foreground">{title}</h1>
           {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
         </div>
-        {children && <div className="flex items-center gap-2 shrink-0">{children}</div>}
+        {children && <div className="flex items-center gap-2 shrink-0 self-start md:self-center flex-wrap">{children}</div>}
       </div>
     </div>
   );
