@@ -1,8 +1,9 @@
 
 "use client";
 
-import { useEffect, useState, createContext, useContext, ReactNode } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { useEffect, useState, createContext, useContext, type ReactNode } from 'react';
+import type { User } from 'firebase/auth'; // Using import type
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
@@ -26,13 +27,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const authProviderValue: AuthContextType = {
-    user: user,
-    loading: loading,
-  };
-
   return (
-    <AuthContext.Provider value={authProviderValue}>
+    <AuthContext.Provider value={{ user, loading }}>
       {children}
     </AuthContext.Provider>
   );
