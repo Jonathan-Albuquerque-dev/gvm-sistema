@@ -107,37 +107,36 @@ export function BudgetList() {
         }
     }
 
-
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
+    const pdfDoc = new jsPDF();
+    const pageWidth = pdfDoc.internal.pageSize.getWidth();
     const margin = 10;
     const contentWidth = pageWidth - margin * 2;
     let currentY = 20;
     
     // Date
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(format(new Date(), 'dd/MM/yyyy', { locale: ptBR }), pageWidth - margin, currentY, { align: 'right' });
+    pdfDoc.setFontSize(10);
+    pdfDoc.setFont('helvetica', 'normal');
+    pdfDoc.text(format(new Date(), 'dd/MM/yyyy', { locale: ptBR }), pageWidth - margin, currentY, { align: 'right' });
 
     currentY += 6;
 
     // PEDIDO DE VENDA Title
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
+    pdfDoc.setFontSize(14);
+    pdfDoc.setFont('helvetica', 'bold');
     const pedidoVendaX = margin + (contentWidth / 2);
-    doc.text("PEDIDO DE VENDA", pedidoVendaX, currentY, { align: 'center', maxWidth: contentWidth });
+    pdfDoc.text("PEDIDO DE VENDA", pedidoVendaX, currentY, { align: 'center', maxWidth: contentWidth });
     
     currentY += 5; 
     // Linha divisória
-    doc.setLineWidth(0.5);
-    doc.line(margin, currentY, pageWidth - margin, currentY);
+    pdfDoc.setLineWidth(0.5);
+    pdfDoc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 8;
 
     // Detalhes do Cliente
-    doc.setFontSize(8);
+    pdfDoc.setFontSize(8);
     const fieldHeight = 5;
     const col1X = margin;
-    const col2X = margin + contentWidth / 2.2; // Adjusted for potentially longer labels/values
+    const col2X = margin + contentWidth / 2.2; 
 
     const clientDetails = [
       { label: "CLIENTE:", value: clientData?.name || budget.clientName || "N/A" },
@@ -148,41 +147,41 @@ export function BudgetList() {
       { label: "NOME FANTASIA:", value: clientData?.companyName || (clientData?.name !== budget.clientName ? clientData?.name : "N/A") },
       { label: "TELEFONE:", value: clientData?.phone || "N/A" },
       { label: "E-MAIL:", value: clientData?.email || "N/A" },
-      { label: "IE:", value: "N/A" }, // IE is not in our Client model
+      { label: "IE:", value: "N/A" }, 
     ];
 
     let tempY1 = currentY;
     clientDetails.forEach(detail => {
-      doc.setFont('helvetica', 'bold');
-      doc.text(detail.label, col1X, tempY1);
-      doc.setFont('helvetica', 'normal');
-      doc.text(detail.value, col1X + (detail.label.length * 1.8 + 2), tempY1, {maxWidth: contentWidth / 2.3 - (detail.label.length * 1.8 + 2) }); // Adjusted value X start & maxWidth
+      pdfDoc.setFont('helvetica', 'bold');
+      pdfDoc.text(detail.label, col1X, tempY1);
+      pdfDoc.setFont('helvetica', 'normal');
+      pdfDoc.text(detail.value, col1X + (detail.label.length * 1.8 + 2), tempY1, {maxWidth: contentWidth / 2.3 - (detail.label.length * 1.8 + 2) }); 
       tempY1 += fieldHeight;
     });
     
     let tempY2 = currentY;
     clientDetailsCol2.forEach(detail => {
-      doc.setFont('helvetica', 'bold');
-      doc.text(detail.label, col2X, tempY2);
-      doc.setFont('helvetica', 'normal');
-      doc.text(detail.value, col2X + (detail.label.length * 1.8 + 2), tempY2, {maxWidth: contentWidth / 2 - (detail.label.length * 1.8 + 7) }); // Adjusted value X start & maxWidth
+      pdfDoc.setFont('helvetica', 'bold');
+      pdfDoc.text(detail.label, col2X, tempY2);
+      pdfDoc.setFont('helvetica', 'normal');
+      pdfDoc.text(detail.value, col2X + (detail.label.length * 1.8 + 2), tempY2, {maxWidth: contentWidth / 2 - (detail.label.length * 1.8 + 7) }); 
       tempY2 += fieldHeight;
     });
 
     currentY = Math.max(tempY1, tempY2); 
     currentY += 2; 
-    doc.line(margin, currentY, pageWidth - margin, currentY);
+    pdfDoc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 8;
 
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.text("VALIDO POR 7 DIAS", col1X, currentY);
-    doc.text("PRAZO DE ENTREGA", col2X, currentY);
-    doc.setFont('helvetica', 'normal');
-    doc.text("30 DIAS ULTEIS", col2X + 30, currentY);
+    pdfDoc.setFontSize(8);
+    pdfDoc.setFont('helvetica', 'bold');
+    pdfDoc.text("VALIDO POR 7 DIAS", col1X, currentY);
+    pdfDoc.text("PRAZO DE ENTREGA", col2X, currentY);
+    pdfDoc.setFont('helvetica', 'normal');
+    pdfDoc.text("30 DIAS ULTEIS", col2X + 30, currentY);
 
     currentY += 6;
-    doc.line(margin, currentY, pageWidth - margin, currentY);
+    pdfDoc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 2;
 
     const tableColumn = ["CÓDIGO", "DESCRIÇÃO", "QTDA", "VALOR UNI", "TOTAL"];
@@ -199,7 +198,7 @@ export function BudgetList() {
       tableRows.push(budgetItemData);
     });
 
-    autoTable(doc, {
+    autoTable(pdfDoc, {
       head: [tableColumn],
       body: tableRows,
       startY: currentY,
@@ -216,14 +215,14 @@ export function BudgetList() {
       margin: { left: margin, right: margin },
       didDrawCell: (data) => {
         if (data.section === 'head') {
-            doc.setDrawColor(0);
-            doc.setLineWidth(0.1);
-            doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height);
+            pdfDoc.setDrawColor(0);
+            pdfDoc.setLineWidth(0.1);
+            pdfDoc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height);
         }
       }
     });
 
-    currentY = (doc as any).lastAutoTable.finalY + 5;
+    currentY = (pdfDoc as any).lastAutoTable.finalY + 5;
 
     const subtotalItems = budget.items.reduce((sum, item) => sum + item.totalPrice, 0);
 
@@ -236,34 +235,34 @@ export function BudgetList() {
     ];
     const totalRowHeight = 10; const totalLabelColumnWidth = 50; const totalValueColumnWidth = 40; const textPadding = 2;
     const totalBlockXStart = pageWidth - margin - (totalLabelColumnWidth + totalValueColumnWidth);
-    doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+    pdfDoc.setFontSize(8); pdfDoc.setFont('helvetica', 'bold');
     totalsData.forEach(total => {
       const labelCellX = totalBlockXStart; const valueCellX = totalBlockXStart + totalLabelColumnWidth;
-      if (total.isFinal) { doc.setFillColor(50, 205, 50); doc.rect(labelCellX, currentY, totalLabelColumnWidth + totalValueColumnWidth, totalRowHeight, 'F'); doc.setTextColor(255, 255, 255); } else { doc.setTextColor(0, 0, 0); }
-      doc.setDrawColor(0); doc.rect(labelCellX, currentY, totalLabelColumnWidth, totalRowHeight);
-      doc.text(total.label, labelCellX + textPadding, currentY + totalRowHeight / 2, { align: 'left', baseline: 'middle' });
-      doc.rect(valueCellX, currentY, totalValueColumnWidth, totalRowHeight);
+      if (total.isFinal) { pdfDoc.setFillColor(50, 205, 50); pdfDoc.rect(labelCellX, currentY, totalLabelColumnWidth + totalValueColumnWidth, totalRowHeight, 'F'); pdfDoc.setTextColor(255, 255, 255); } else { pdfDoc.setTextColor(0, 0, 0); }
+      pdfDoc.setDrawColor(0); pdfDoc.rect(labelCellX, currentY, totalLabelColumnWidth, totalRowHeight);
+      pdfDoc.text(total.label, labelCellX + textPadding, currentY + totalRowHeight / 2, { align: 'left', baseline: 'middle' });
+      pdfDoc.rect(valueCellX, currentY, totalValueColumnWidth, totalRowHeight);
       const formattedValue = total.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-      doc.text(formattedValue, valueCellX + totalValueColumnWidth - textPadding, currentY + totalRowHeight / 2, { align: 'right', baseline: 'middle' });
+      pdfDoc.text(formattedValue, valueCellX + totalValueColumnWidth - textPadding, currentY + totalRowHeight / 2, { align: 'right', baseline: 'middle' });
       currentY += totalRowHeight;
     });
-    doc.setTextColor(0, 0, 0); currentY += 5; 
+    pdfDoc.setTextColor(0, 0, 0); currentY += 5; 
 
-    doc.setFont('helvetica', 'bold'); doc.text("OBSERVAÇÕES:", margin, currentY); currentY += 3;
-    doc.setLineWidth(0.2); doc.rect(margin, currentY, contentWidth, 20); 
-    if (budget.observations) { doc.setFont('helvetica', 'normal'); const observationLines = doc.splitTextToSize(budget.observations, contentWidth - 4); doc.text(observationLines, margin + 2, currentY + 4); }
+    pdfDoc.setFont('helvetica', 'bold'); pdfDoc.text("OBSERVAÇÕES:", margin, currentY); currentY += 3;
+    pdfDoc.setLineWidth(0.2); pdfDoc.rect(margin, currentY, contentWidth, 20); 
+    if (budget.observations) { pdfDoc.setFont('helvetica', 'normal'); const observationLines = pdfDoc.splitTextToSize(budget.observations, contentWidth - 4); pdfDoc.text(observationLines, margin + 2, currentY + 4); }
     currentY += 20 + 5; 
 
-    doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+    pdfDoc.setFontSize(7); pdfDoc.setFont('helvetica', 'normal');
     const companyContact = "CONTATO: (85) 9.8764-5281"; const companyAddress = "Rua Paolo Afonço, 3703 Maracanaú-CE / CNPJ: 36.245.901/0001-90";
-    doc.text(companyContact, margin, currentY); currentY += 4; doc.text(companyAddress, margin, currentY); currentY += 6;
-    doc.line(margin, currentY, pageWidth - margin, currentY); currentY += 8;
+    pdfDoc.text(companyContact, margin, currentY); currentY += 4; pdfDoc.text(companyAddress, margin, currentY); currentY += 6;
+    pdfDoc.line(margin, currentY, pageWidth - margin, currentY); currentY += 8;
 
-    doc.setFontSize(8); const signatureY = doc.internal.pageSize.getHeight() - 25 > currentY ? doc.internal.pageSize.getHeight() - 25 : currentY;
-    doc.line(margin + 10, signatureY, margin + 70, signatureY); doc.text("Cliente", margin + 40, signatureY + 4, { align: 'center'}); 
-    doc.line(pageWidth - margin - 70, signatureY, pageWidth - margin - 10, signatureY); doc.text("Vendedor", pageWidth - margin - 40, signatureY + 4, {align: 'center'}); 
+    pdfDoc.setFontSize(8); const signatureY = pdfDoc.internal.pageSize.getHeight() - 25 > currentY ? pdfDoc.internal.pageSize.getHeight() - 25 : currentY;
+    pdfDoc.line(margin + 10, signatureY, margin + 70, signatureY); pdfDoc.text("Cliente", margin + 40, signatureY + 4, { align: 'center'}); 
+    pdfDoc.line(pageWidth - margin - 70, signatureY, pageWidth - margin - 10, signatureY); pdfDoc.text("Vendedor", pageWidth - margin - 40, signatureY + 4, {align: 'center'}); 
     
-    doc.save(`pedido_venda_${(clientData?.name || budget.clientName || 'cliente').replace(/\s+/g, '_')}_${budget.id.substring(0,6)}.pdf`);
+    pdfDoc.save(`pedido_venda_${(clientData?.name || budget.clientName || 'cliente').replace(/\s+/g, '_')}_${budget.id.substring(0,6)}.pdf`);
     toast({ title: 'PDF Gerado', description: `O PDF para o orçamento ${budget.id.substring(0,8)} foi gerado.` });
   };
   
@@ -373,4 +372,5 @@ export function BudgetList() {
 
 
     
+
 
