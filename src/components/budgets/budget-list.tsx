@@ -96,11 +96,6 @@ export function BudgetList() {
     const margin = 10;
     const contentWidth = pageWidth - margin * 2;
     let currentY = 20;
-
-    // GVM Title
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text("GVM", margin, currentY);
     
     // Date
     doc.setFontSize(10);
@@ -115,18 +110,13 @@ export function BudgetList() {
     const pedidoVendaX = margin + (contentWidth / 2);
     doc.text("PEDIDO DE VENDA", pedidoVendaX, currentY, { align: 'center', maxWidth: contentWidth });
     
-    currentY += 5;
-    // Budget ID
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`ID: ${budget.id}`, pedidoVendaX, currentY, { align: 'center', maxWidth: contentWidth });
-
-
-    currentY += 6; 
+    currentY += 5; 
+    // Linha divisória
     doc.setLineWidth(0.5);
     doc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 8;
 
+    // Detalhes do Cliente (mantém como estava)
     doc.setFontSize(8);
     const fieldHeight = 5;
     const col1X = margin;
@@ -359,4 +349,7 @@ export function BudgetList() {
     </div>
   );
 }
+    
+
+
     
