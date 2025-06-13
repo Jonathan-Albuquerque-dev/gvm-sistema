@@ -6,13 +6,14 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Calculator, TrendingUp, Percent, Landmark, ShoppingCart, PlusCircle, HandCoins, ReceiptText, Loader2 } from 'lucide-react';
+import { DollarSign, Calculator, TrendingUp, Percent, Landmark, ShoppingCart, PlusCircle, HandCoins, ReceiptText, Loader2, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import type { Budget, VariableCost, FixedCost, CostCategory } from '@/types';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { FixedCostForm } from '@/components/costs/fixed-cost-form';
 import { VariableCostForm } from '@/components/costs/variable-cost-form';
 
@@ -39,7 +40,10 @@ export default function CostControlPage() {
   const { toast } = useToast();
 
   const [isFixedCostDialogOpen, setIsFixedCostDialogOpen] = useState(false);
+  const [fixedCostToEdit, setFixedCostToEdit] = useState<FixedCost | null>(null);
   const [isVariableCostDialogOpen, setIsVariableCostDialogOpen] = useState(false);
+  const [variableCostToEdit, setVariableCostToEdit] = useState<VariableCost | null>(null);
+
 
   const [receitaTotal, setReceitaTotal] = useState(0);
   const [custoMaterialTotal, setCustoMaterialTotal] = useState(0);
@@ -144,6 +148,39 @@ export default function CostControlPage() {
   const percentCustosFixos = custoTotal > 0 ? (custosFixosTotal / custoTotal) * 100 : 0;
   const custoMedioPorProjeto = approvedBudgetsCount > 0 ? custoTotal / approvedBudgetsCount : 0;
 
+  const handleOpenFixedCostDialog = (cost: FixedCost | null = null) => {
+    setFixedCostToEdit(cost);
+    setIsFixedCostDialogOpen(true);
+  };
+
+  const handleDeleteFixedCost = async (costId: string, costDescription: string) => {
+    if (!window.confirm(`Tem certeza que deseja excluir o custo fixo "${costDescription}"?`)) return;
+    try {
+      await deleteDoc(doc(db, 'fixedCosts', costId));
+      toast({ title: 'Custo Fixo Excluído!', description: `O custo "${costDescription}" foi excluído.` });
+    } catch (error) {
+      console.error("Erro ao excluir custo fixo:", error);
+      toast({ title: 'Erro ao Excluir', description: 'Não foi possível excluir o custo fixo.', variant: 'destructive' });
+    }
+  };
+
+  const handleOpenVariableCostDialog = (cost: VariableCost | null = null) => {
+    setVariableCostToEdit(cost);
+    setIsVariableCostDialogOpen(true);
+  };
+
+  const handleDeleteVariableCost = async (costId: string, costDescription: string) => {
+    if (!window.confirm(`Tem certeza que deseja excluir o custo variável "${costDescription}"?`)) return;
+    try {
+      await deleteDoc(doc(db, 'variableCosts', costId));
+      toast({ title: 'Custo Variável Excluído!', description: `O custo "${costDescription}" foi excluído.` });
+    } catch (error) {
+      console.error("Erro ao excluir custo variável:", error);
+      toast({ title: 'Erro ao Excluir', description: 'Não foi possível excluir o custo variável.', variant: 'destructive' });
+    }
+  };
+
+
   if (isLoadingBudgets || isLoadingFixedCosts || isLoadingVariableCosts) {
     return (
       <>
@@ -221,20 +258,29 @@ export default function CostControlPage() {
                 <Landmark className="h-5 w-5 text-primary" />
                 <CardTitle>Gastos Fixos Mensais</CardTitle>
             </div>
-            <Dialog open={isFixedCostDialogOpen} onOpenChange={setIsFixedCostDialogOpen}>
+            <Dialog open={isFixedCostDialogOpen} onOpenChange={(isOpen) => {
+                setIsFixedCostDialogOpen(isOpen);
+                if (!isOpen) setFixedCostToEdit(null);
+            }}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => handleOpenFixedCostDialog()}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Adicionar
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle>Adicionar Gasto Fixo</DialogTitle>
+                  <DialogTitle>{fixedCostToEdit ? 'Editar Gasto Fixo' : 'Adicionar Gasto Fixo'}</DialogTitle>
                   <DialogDescription>
-                    Preencha os detalhes do novo gasto fixo mensal.
+                    {fixedCostToEdit ? 'Modifique os detalhes do gasto fixo.' : 'Preencha os detalhes do novo gasto fixo mensal.'}
                   </DialogDescription>
                 </DialogHeader>
-                <FixedCostForm onSubmitSuccess={() => setIsFixedCostDialogOpen(false)} />
+                <FixedCostForm 
+                    fixedCost={fixedCostToEdit} 
+                    onSubmitSuccess={() => {
+                        setIsFixedCostDialogOpen(false);
+                        setFixedCostToEdit(null);
+                    }} 
+                />
               </DialogContent>
             </Dialog>
           </CardHeader>
@@ -248,6 +294,7 @@ export default function CostControlPage() {
                     <TableHead>Descrição</TableHead>
                     <TableHead>Categoria</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -256,6 +303,23 @@ export default function CostControlPage() {
                       <TableCell>{cost.description}</TableCell>
                       <TableCell>{categoryTranslations[cost.category as CostCategory] || cost.category}</TableCell>
                       <TableCell className="text-right">{formatCurrency(cost.amount)}</TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleOpenFixedCostDialog(cost)}>
+                              <Edit className="mr-2 h-4 w-4" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteFixedCost(cost.id, cost.description)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
+                              <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -273,20 +337,29 @@ export default function CostControlPage() {
                 <HandCoins className="h-5 w-5 text-primary" />
                 <CardTitle>Gastos Variáveis Lançados</CardTitle>
             </div>
-             <Dialog open={isVariableCostDialogOpen} onOpenChange={setIsVariableCostDialogOpen}>
+             <Dialog open={isVariableCostDialogOpen} onOpenChange={(isOpen) => {
+                setIsVariableCostDialogOpen(isOpen);
+                if (!isOpen) setVariableCostToEdit(null);
+             }}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => handleOpenVariableCostDialog()}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Adicionar
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
-                  <DialogTitle>Adicionar Gasto Variável</DialogTitle>
+                  <DialogTitle>{variableCostToEdit ? 'Editar Gasto Variável' : 'Adicionar Gasto Variável'}</DialogTitle>
                   <DialogDescription>
-                    Preencha os detalhes do novo gasto variável.
+                     {variableCostToEdit ? 'Modifique os detalhes do gasto variável.' : 'Preencha os detalhes do novo gasto variável.'}
                   </DialogDescription>
                 </DialogHeader>
-                <VariableCostForm onSubmitSuccess={() => setIsVariableCostDialogOpen(false)} />
+                <VariableCostForm 
+                    variableCost={variableCostToEdit}
+                    onSubmitSuccess={() => {
+                        setIsVariableCostDialogOpen(false);
+                        setVariableCostToEdit(null);
+                    }} 
+                />
               </DialogContent>
             </Dialog>
           </CardHeader>
@@ -301,6 +374,7 @@ export default function CostControlPage() {
                     <TableHead>Data</TableHead>
                     <TableHead>Categoria</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
+                    <TableHead className="text-right">Ações</TableHead> 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -310,6 +384,23 @@ export default function CostControlPage() {
                       <TableCell>{new Date(cost.date).toLocaleDateString('pt-BR')}</TableCell>
                       <TableCell>{categoryTranslations[cost.category as CostCategory] || cost.category}</TableCell>
                       <TableCell className="text-right">{formatCurrency(cost.amount)}</TableCell>
+                      <TableCell className="text-right">
+                         <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleOpenVariableCostDialog(cost)}>
+                              <Edit className="mr-2 h-4 w-4" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteVariableCost(cost.id, cost.description)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
+                              <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -375,5 +466,3 @@ export default function CostControlPage() {
     </>
   );
 }
-
-    

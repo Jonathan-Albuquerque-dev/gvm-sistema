@@ -10,11 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { COST_CATEGORIES, type CostCategory } from '@/types';
+import { COST_CATEGORIES, type CostCategory, type VariableCost } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, addDoc } from 'firebase/firestore';
-import { useState } from 'react';
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
 import { CalendarIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -30,6 +30,7 @@ const variableCostFormSchema = z.object({
 type VariableCostFormValues = z.infer<typeof variableCostFormSchema>;
 
 interface VariableCostFormProps {
+  variableCost?: VariableCost | null;
   onSubmitSuccess?: () => void;
 }
 
@@ -45,13 +46,16 @@ const categoryTranslations: Record<CostCategory, string> = {
   benefits: 'Benefícios'
 };
 
-export function VariableCostForm({ onSubmitSuccess }: VariableCostFormProps) {
+export function VariableCostForm({ variableCost, onSubmitSuccess }: VariableCostFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<VariableCostFormValues>({
     resolver: zodResolver(variableCostFormSchema),
-    defaultValues: {
+    defaultValues: variableCost ? {
+      ...variableCost,
+      date: new Date(variableCost.date), // Convert ISO string to Date
+    } : {
       description: '',
       amount: 0,
       date: new Date(),
@@ -59,18 +63,50 @@ export function VariableCostForm({ onSubmitSuccess }: VariableCostFormProps) {
     },
   });
 
+  useEffect(() => {
+    if (variableCost) {
+      form.reset({
+        ...variableCost,
+        date: new Date(variableCost.date),
+      });
+    } else {
+      form.reset({
+        description: '',
+        amount: 0,
+        date: new Date(),
+        category: undefined,
+      });
+    }
+  }, [variableCost, form]);
+
   async function onSubmit(values: VariableCostFormValues) {
     setIsLoading(true);
     try {
-      await addDoc(collection(db, 'variableCosts'), {
+      const dataToSave = {
         ...values,
-        date: values.date.toISOString(), 
-        createdAt: new Date().toISOString(),
-      });
-      toast({
-        title: 'Custo Variável Adicionado!',
-        description: 'O novo custo variável foi salvo com sucesso.',
-      });
+        date: values.date.toISOString(), // Store as ISO string
+      };
+
+      if (variableCost && variableCost.id) {
+        await updateDoc(doc(db, 'variableCosts', variableCost.id), {
+          ...dataToSave,
+          updatedAt: new Date().toISOString(),
+        });
+        toast({
+          title: 'Custo Variável Atualizado!',
+          description: 'O custo variável foi atualizado com sucesso.',
+        });
+      } else {
+        await addDoc(collection(db, 'variableCosts'), {
+          ...dataToSave,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+        toast({
+          title: 'Custo Variável Adicionado!',
+          description: 'O novo custo variável foi salvo com sucesso.',
+        });
+      }
       form.reset();
       if (onSubmitSuccess) {
         onSubmitSuccess();
@@ -188,12 +224,10 @@ export function VariableCostForm({ onSubmitSuccess }: VariableCostFormProps) {
         <div className="flex justify-end">
           <Button type="submit" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isLoading ? 'Salvando...' : 'Adicionar Custo Variável'}
+            {isLoading ? 'Salvando...' : (variableCost ? 'Salvar Alterações' : 'Adicionar Custo Variável')}
           </Button>
         </div>
       </form>
     </Form>
   );
 }
-
-    

@@ -8,11 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { COST_CATEGORIES, type CostCategory } from '@/types';
+import { COST_CATEGORIES, type CostCategory, type FixedCost } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, addDoc } from 'firebase/firestore';
-import { useState } from 'react';
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
 const fixedCostFormSchema = z.object({
@@ -24,6 +24,7 @@ const fixedCostFormSchema = z.object({
 type FixedCostFormValues = z.infer<typeof fixedCostFormSchema>;
 
 interface FixedCostFormProps {
+  fixedCost?: FixedCost | null;
   onSubmitSuccess?: () => void;
 }
 
@@ -39,30 +40,54 @@ const categoryTranslations: Record<CostCategory, string> = {
   benefits: 'Benefícios'
 };
 
-export function FixedCostForm({ onSubmitSuccess }: FixedCostFormProps) {
+export function FixedCostForm({ fixedCost, onSubmitSuccess }: FixedCostFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<FixedCostFormValues>({
     resolver: zodResolver(fixedCostFormSchema),
-    defaultValues: {
+    defaultValues: fixedCost || {
       description: '',
       amount: 0,
       category: undefined,
     },
   });
 
+  useEffect(() => {
+    if (fixedCost) {
+      form.reset(fixedCost);
+    } else {
+      form.reset({
+        description: '',
+        amount: 0,
+        category: undefined,
+      });
+    }
+  }, [fixedCost, form]);
+
   async function onSubmit(values: FixedCostFormValues) {
     setIsLoading(true);
     try {
-      await addDoc(collection(db, 'fixedCosts'), {
-        ...values,
-        createdAt: new Date().toISOString(),
-      });
-      toast({
-        title: 'Custo Fixo Adicionado!',
-        description: 'O novo custo fixo foi salvo com sucesso.',
-      });
+      if (fixedCost && fixedCost.id) {
+        await updateDoc(doc(db, 'fixedCosts', fixedCost.id), {
+          ...values,
+          updatedAt: new Date().toISOString(),
+        });
+        toast({
+          title: 'Custo Fixo Atualizado!',
+          description: 'O custo fixo foi atualizado com sucesso.',
+        });
+      } else {
+        await addDoc(collection(db, 'fixedCosts'), {
+          ...values,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+        toast({
+          title: 'Custo Fixo Adicionado!',
+          description: 'O novo custo fixo foi salvo com sucesso.',
+        });
+      }
       form.reset(); 
       if (onSubmitSuccess) {
         onSubmitSuccess(); 
@@ -135,12 +160,10 @@ export function FixedCostForm({ onSubmitSuccess }: FixedCostFormProps) {
         <div className="flex justify-end">
             <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isLoading ? 'Salvando...' : 'Adicionar Custo Fixo'}
+                {isLoading ? 'Salvando...' : (fixedCost ? 'Salvar Alterações' : 'Adicionar Custo Fixo')}
             </Button>
         </div>
       </form>
     </Form>
   );
 }
-
-    
