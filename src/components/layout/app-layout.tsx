@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Home, FileText, Package, Users, BarChart3, Settings, LogOut, Building2 } from 'lucide-react'; // Added Building2 for brand
+import { Home, FileText, Package, Users, BarChart3, Building2 } from 'lucide-react';
 
 interface AppLayoutProps {
   children: ReactNode;
