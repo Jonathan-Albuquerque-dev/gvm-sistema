@@ -1,11 +1,12 @@
 
-import type { Client, Product, Budget, BudgetStatus, ProductCategory, SalesData, Employee, VariableCost } from '@/types';
+import type { Client, Product, Budget, BudgetStatus, ProductCategory, SalesData, Employee, VariableCost, FixedCost } from '@/types';
 
 const today = new Date();
 const oneMonthAgo = new Date(new Date().setDate(today.getDate() - 30));
 const twoMonthsAgo = new Date(new Date().setDate(today.getDate() - 60));
 const threeDaysAgo = new Date(new Date().setDate(today.getDate() - 3));
 const tenDaysAgo = new Date(new Date().setDate(today.getDate() - 10));
+const fifteenDaysAgo = new Date(new Date().setDate(today.getDate() - 15));
 
 
 export const MOCK_CLIENTS: Client[] = [
@@ -61,6 +62,19 @@ export const MOCK_BUDGETS: Budget[] = [
     createdAt: today.toISOString(),
     updatedAt: today.toISOString(),
   },
+   {
+    id: 'budget-4',
+    clientId: 'client-2',
+    clientName: 'Maria Oliveira',
+    items: [
+      { productId: 'prod-1', productName: 'Disjuntor Bipolar 40A', quantity: 10, unitPrice: 45.90, totalPrice: 459.00 },
+    ],
+    materialCostInternal: 10 * 22.50, // 225.00
+    totalAmount: 459.00,
+    status: 'approved',
+    createdAt: fifteenDaysAgo.toISOString(),
+    updatedAt: fifteenDaysAgo.toISOString(),
+  }
 ];
 
 export const MOCK_SALES_DATA: SalesData[] = [
@@ -79,7 +93,16 @@ export const MOCK_EMPLOYEES: Employee[] = [
 ];
 
 export const MOCK_VARIABLE_COSTS: VariableCost[] = [
-  { id: 'cost-1', description: 'Almoço equipe externa', amount: 75.50, date: threeDaysAgo.toISOString(), employeeId: 'emp-1', employeeName: 'Carlos Pereira', category: 'food', createdAt: threeDaysAgo.toISOString()},
-  { id: 'cost-2', description: 'Vale transporte mensal Ana', amount: 180.00, date: oneMonthAgo.toISOString(), employeeId: 'emp-2', employeeName: 'Ana Souza', category: 'transport', createdAt: oneMonthAgo.toISOString()},
-  { id: 'cost-3', description: 'Compra de parafusos diversos', amount: 45.20, date: tenDaysAgo.toISOString(), category: 'office_supplies', createdAt: tenDaysAgo.toISOString()},
+  { id: 'cost-1', description: 'Almoço equipe Carlos', amount: 75.50, date: threeDaysAgo.toISOString(), employeeId: 'emp-1', employeeName: 'Carlos Pereira', category: 'food', createdAt: threeDaysAgo.toISOString()},
+  { id: 'cost-2', description: 'Vale transporte Ana', amount: 180.00, date: oneMonthAgo.toISOString(), employeeId: 'emp-2', employeeName: 'Ana Souza', category: 'transport', createdAt: oneMonthAgo.toISOString()},
+  { id: 'cost-3', description: 'Compra de parafusos e buchas', amount: 45.20, date: tenDaysAgo.toISOString(), category: 'office_supplies', createdAt: tenDaysAgo.toISOString()},
+  { id: 'cost-4', description: 'Gasolina para visita técnica', amount: 60.00, date: new Date(new Date().setDate(today.getDate() - 5)).toISOString(), employeeId: 'emp-1', employeeName: 'Carlos Pereira', category: 'transport', createdAt: new Date(new Date().setDate(today.getDate() - 5)).toISOString()},
+];
+
+export const MOCK_FIXED_COSTS: FixedCost[] = [
+  { id: 'fixed-1', description: 'Aluguel do Escritório', amount: 1200.00, category: 'rent', createdAt: oneMonthAgo.toISOString()},
+  { id: 'fixed-2', description: 'Salário Carlos Pereira', amount: 3500.00, category: 'salary', createdAt: oneMonthAgo.toISOString()},
+  { id: 'fixed-3', description: 'Salário Ana Souza', amount: 2200.00, category: 'salary', createdAt: oneMonthAgo.toISOString()},
+  { id: 'fixed-4', description: 'Conta de Luz Escritório', amount: 150.00, category: 'utilities', createdAt: oneMonthAgo.toISOString()},
+  { id: 'fixed-5', description: 'Internet Escritório', amount: 99.00, category: 'utilities', createdAt: oneMonthAgo.toISOString()},
 ];

@@ -4,19 +4,38 @@
 import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { DollarSign, Calculator, TrendingUp, Percent } from 'lucide-react';
-import { MOCK_BUDGETS, MOCK_VARIABLE_COSTS } from '@/lib/mock-data';
-import type { Budget, VariableCost } from '@/types';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DollarSign, Calculator, TrendingUp, Percent, Landmark, ShoppingCart, PlusCircle, HandCoins, ReceiptText } from 'lucide-react';
+import { MOCK_BUDGETS, MOCK_VARIABLE_COSTS, MOCK_FIXED_COSTS } from '@/lib/mock-data';
+import type { Budget, VariableCost, FixedCost, CostCategory } from '@/types';
 import { cn } from '@/lib/utils';
+
+const categoryTranslations: Record<CostCategory, string> = {
+  food: 'Alimentação',
+  transport: 'Transporte',
+  salary: 'Salários',
+  rent: 'Aluguel',
+  utilities: 'Utilidades',
+  marketing: 'Marketing',
+  office_supplies: 'Material Escritório',
+  other: 'Outros',
+  benefits: 'Benefícios'
+};
+
 
 export default function CostControlPage() {
   const [receitaTotal, setReceitaTotal] = useState(0);
   const [custoMaterialTotal, setCustoMaterialTotal] = useState(0);
   const [custosVariaveisTotal, setCustosVariaveisTotal] = useState(0);
+  const [custosFixosTotal, setCustosFixosTotal] = useState(0);
   const [custoTotal, setCustoTotal] = useState(0);
   const [lucroTotal, setLucroTotal] = useState(0);
   const [margemMedia, setMargemMedia] = useState(0);
   const [approvedBudgetsCount, setApprovedBudgetsCount] = useState(0);
+
+  const [variableCosts, setVariableCosts] = useState<VariableCost[]>([]);
+  const [fixedCosts, setFixedCosts] = useState<FixedCost[]>([]);
 
   useEffect(() => {
     const approvedBudgets = MOCK_BUDGETS.filter(b => b.status === 'approved');
@@ -31,8 +50,13 @@ export default function CostControlPage() {
     
     const currentCustosVariaveisTotal = MOCK_VARIABLE_COSTS.reduce((sum, vc) => sum + vc.amount, 0);
     setCustosVariaveisTotal(currentCustosVariaveisTotal);
+    setVariableCosts(MOCK_VARIABLE_COSTS);
 
-    const currentCustoTotal = currentCustoMaterialTotal + currentCustosVariaveisTotal;
+    const currentCustosFixosTotal = MOCK_FIXED_COSTS.reduce((sum, fc) => sum + fc.amount, 0);
+    setCustosFixosTotal(currentCustosFixosTotal);
+    setFixedCosts(MOCK_FIXED_COSTS);
+
+    const currentCustoTotal = currentCustoMaterialTotal + currentCustosVariaveisTotal + currentCustosFixosTotal;
     setCustoTotal(currentCustoTotal);
 
     const currentLucroTotal = currentReceitaTotal - currentCustoTotal;
@@ -52,15 +76,15 @@ export default function CostControlPage() {
   const kpiTitleClasses = "text-sm font-medium text-muted-foreground";
   const kpiSubtitleClasses = "text-xs text-muted-foreground";
   
-  const custoMaoDeObraTotal = 0; // Placeholder as no direct labor cost in budget items now
   const percentCustoMaterial = custoTotal > 0 ? (custoMaterialTotal / custoTotal) * 100 : 0;
-  const percentCustoMaoDeObra = custoTotal > 0 ? (custoMaoDeObraTotal / custoTotal) * 100 : 0;
+  const percentCustosVariaveis = custoTotal > 0 ? (custosVariaveisTotal / custoTotal) * 100 : 0;
+  const percentCustosFixos = custoTotal > 0 ? (custosFixosTotal / custoTotal) * 100 : 0;
   const custoMedioPorProjeto = approvedBudgetsCount > 0 ? custoTotal / approvedBudgetsCount : 0;
 
 
   return (
     <>
-      <PageHeader title="Controle de Custos" description="Análise de margem e rentabilidade" />
+      <PageHeader title="Controle de Custos" description="Análise de margem, rentabilidade e despesas." />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
         <Card className={kpiCardBaseClasses}>
@@ -85,7 +109,7 @@ export default function CostControlPage() {
           <CardContent className="p-4 pt-0">
             <div className={kpiValueClasses}>{formatCurrency(custoTotal)}</div>
             <CardTitle className={kpiTitleClasses}>Custo Total</CardTitle>
-            <p className={kpiSubtitleClasses}>Material + Custos Variáveis</p>
+            <p className={kpiSubtitleClasses}>Material + Fixo + Variável</p>
           </CardContent>
         </Card>
 
@@ -116,19 +140,100 @@ export default function CostControlPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Análise de Produtos</CardTitle>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+                <Landmark className="h-5 w-5 text-primary" />
+                <CardTitle>Gastos Fixos Mensais</CardTitle>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => console.log("Adicionar Gasto Fixo")}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Adicionar
+            </Button>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">Em breve: Análise detalhada da rentabilidade por produto ou serviço.</p>
+            {fixedCosts.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {fixedCosts.map(cost => (
+                    <TableRow key={cost.id}>
+                      <TableCell>{cost.description}</TableCell>
+                      <TableCell>{categoryTranslations[cost.category as CostCategory] || cost.category}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(cost.amount)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : <p className="text-muted-foreground">Nenhum gasto fixo cadastrado.</p>}
+             <div className="font-semibold text-right mt-4 border-t pt-2">
+                Total Fixo: {formatCurrency(custosFixosTotal)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+             <div className="flex items-center gap-2">
+                <HandCoins className="h-5 w-5 text-primary" />
+                <CardTitle>Gastos Variáveis Lançados</CardTitle>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => console.log("Adicionar Gasto Variável")}>
+                 <PlusCircle className="mr-2 h-4 w-4" /> Adicionar
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {variableCosts.length > 0 ? (
+            <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {variableCosts.map(cost => (
+                    <TableRow key={cost.id}>
+                      <TableCell>{cost.description}</TableCell>
+                      <TableCell>{new Date(cost.date).toLocaleDateString('pt-BR')}</TableCell>
+                      <TableCell>{categoryTranslations[cost.category as CostCategory] || cost.category}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(cost.amount)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : <p className="text-muted-foreground">Nenhum gasto variável lançado.</p>}
+            <div className="font-semibold text-right mt-4 border-t pt-2">
+                Total Variável: {formatCurrency(custosVariaveisTotal)}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center gap-2">
+            <ReceiptText className="h-5 w-5 text-primary" />
+            <CardTitle>Análise de Rentabilidade por Produto/Serviço</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">Em breve: Análise detalhada da rentabilidade por produto ou serviço, considerando custos diretos e rateio de custos indiretos.</p>
           </CardContent>
         </Card>
 
         <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle>Breakdown de Custos</CardTitle>
+          <CardHeader className="flex flex-row items-center gap-2">
+            <ShoppingCart className="h-5 w-5 text-primary" />
+            <CardTitle>Breakdown de Custos Totais</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between items-center p-3 rounded-md bg-[hsl(var(--status-info-background))] bg-opacity-20 dark:bg-opacity-10">
@@ -138,24 +243,31 @@ export default function CostControlPage() {
               </div>
               <p className="text-sm font-semibold text-[hsl(var(--status-info-foreground))]">{formatCurrency(custoMaterialTotal)}</p>
             </div>
-            <div className="flex justify-between items-center p-3 rounded-md bg-[hsl(var(--status-success-background))] bg-opacity-20 dark:bg-opacity-10">
+             <div className="flex justify-between items-center p-3 rounded-md bg-[hsl(var(--status-warning-background))] bg-opacity-20 dark:bg-opacity-10">
               <div>
-                <p className="text-sm font-medium text-[hsl(var(--status-success-foreground))]">Custos de Mão de Obra</p>
-                <p className="text-xs text-muted-foreground">{formatPercent(percentCustoMaoDeObra)} do total</p>
+                <p className="text-sm font-medium text-[hsl(var(--status-warning-foreground))]">Custos Variáveis</p>
+                <p className="text-xs text-muted-foreground">{formatPercent(percentCustosVariaveis)} do total</p>
               </div>
-              <p className="text-sm font-semibold text-[hsl(var(--status-success-foreground))]">{formatCurrency(custoMaoDeObraTotal)}</p>
+              <p className="text-sm font-semibold text-[hsl(var(--status-warning-foreground))]">{formatCurrency(custosVariaveisTotal)}</p>
             </div>
+            <div className="flex justify-between items-center p-3 rounded-md bg-[hsl(var(--status-danger-background))] bg-opacity-20 dark:bg-opacity-10">
+              <div>
+                <p className="text-sm font-medium text-[hsl(var(--status-danger-foreground))]">Custos Fixos Mensais</p>
+                <p className="text-xs text-muted-foreground">{formatPercent(percentCustosFixos)} do total</p>
+              </div>
+              <p className="text-sm font-semibold text-[hsl(var(--status-danger-foreground))]">{formatCurrency(custosFixosTotal)}</p>
+            </div>
+            
              <div className="border-t pt-3 mt-3">
                 <div className="flex justify-between items-center">
-                    <p className="text-sm text-muted-foreground">Custo Médio por Projeto</p>
+                    <p className="text-sm text-muted-foreground">Custo Médio por Projeto Aprovado</p>
                     <p className="text-sm font-semibold">{formatCurrency(custoMedioPorProjeto)}</p>
                 </div>
              </div>
-             <p className="text-xs text-muted-foreground pt-2">Nota: "Custos de Mão de Obra" são baseados nos custos variáveis lançados. Para uma análise mais precisa, categorize os custos variáveis ou implemente uma forma de rastrear custos de mão de obra por projeto.</p>
+             <p className="text-xs text-muted-foreground pt-2">Nota: "Custos de Mão de Obra" estão agora refletidos principalmente nos "Custos Fixos" (salários) e parcialmente nos "Custos Variáveis" (despesas de funcionários). A análise de custo por projeto pode ser mais detalhada ao rastrear horas/custos de mão de obra por projeto.</p>
           </CardContent>
         </Card>
       </div>
     </>
   );
 }
-

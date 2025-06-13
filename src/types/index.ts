@@ -51,25 +51,32 @@ export interface SalesData {
   totalSales: number;
 }
 
-// New types for Employees and Variable Costs
 export interface Employee {
   id: string;
   name: string;
   position: string; // Cargo
   admissionDate: string; // Data de Admissão
   createdAt: string;
-  // Future: contact (email, phone), salary, etc.
 }
 
-export type CostCategory = 'food' | 'transport' | 'benefits' | 'office_supplies' | 'other';
+export type CostCategory = 'food' | 'transport' | 'salary' | 'rent' | 'utilities' | 'marketing' | 'office_supplies' | 'other';
 
 export interface VariableCost {
   id: string;
   description: string;
   amount: number;
   date: string;
-  employeeId?: string; // Optional: link to an employee
-  employeeName?: string; // Denormalized for display
-  category: CostCategory | string; // Allow predefined or custom categories
+  employeeId?: string; 
+  employeeName?: string; 
+  category: CostCategory | string; 
+  createdAt: string;
+}
+
+export interface FixedCost {
+  id: string;
+  description: string;
+  amount: number;
+  category: CostCategory | string;
+  // recurringDayOfMonth: number; // Example: 1 for 1st of month - for future implementation
   createdAt: string;
 }
