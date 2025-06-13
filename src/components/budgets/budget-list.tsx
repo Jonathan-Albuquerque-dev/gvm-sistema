@@ -128,9 +128,8 @@ export function BudgetList() {
       currentY += fieldHeight;
     });
     
-    currentY -= clientDetails.length * fieldHeight; // Reset Y for second column of client info
+    currentY -= clientDetails.length * fieldHeight; 
 
-    // Align second column of client info based on number of fields in first col
     let col2StartY = currentY;
     if (clientDetailsCol2.length < clientDetails.length) {
         col2StartY += (clientDetails.length - clientDetailsCol2.length) * fieldHeight / 2;
@@ -144,8 +143,8 @@ export function BudgetList() {
       col2StartY += fieldHeight;
     });
 
-    currentY += Math.max(clientDetails.length, clientDetailsCol2.length) * fieldHeight - fieldHeight; // Adjust Y after client block
-    currentY += 2; // Extra space
+    currentY += Math.max(clientDetails.length, clientDetailsCol2.length) * fieldHeight - fieldHeight; 
+    currentY += 2; 
     doc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 8;
 
@@ -188,8 +187,8 @@ export function BudgetList() {
       startY: currentY,
       theme: 'plain',
       headStyles: {
-        fillColor: [255, 255, 0], // Yellow
-        textColor: [0, 0, 0], // Black
+        fillColor: [255, 255, 0], 
+        textColor: [0, 0, 0], 
         fontStyle: 'bold',
         fontSize: 8,
         halign: 'center'
@@ -199,11 +198,11 @@ export function BudgetList() {
         cellPadding: {top: 1.5, right: 2, bottom: 1.5, left: 2},
       },
       columnStyles: {
-        0: { cellWidth: 20, halign: 'left' }, // CÓDIGO
-        1: { cellWidth: 'auto', halign: 'left' }, // DESCRIÇÃO
-        2: { cellWidth: 15, halign: 'right' }, // QTDA
-        3: { cellWidth: 25, halign: 'right' }, // VALOR UNI
-        4: { cellWidth: 25, halign: 'right' }, // TOTAL
+        0: { cellWidth: 20, halign: 'left' }, 
+        1: { cellWidth: 'auto', halign: 'left' }, 
+        2: { cellWidth: 15, halign: 'right' }, 
+        3: { cellWidth: 25, halign: 'right' }, 
+        4: { cellWidth: 25, halign: 'right' }, 
       },
       margin: { left: margin, right: margin },
       didDrawCell: (data) => {
@@ -218,7 +217,7 @@ export function BudgetList() {
     currentY = (doc as any).lastAutoTable.finalY + 5;
 
     // Totals Section
-    const totals = [
+    const totalsData = [
       { label: "VALOR TOTAL", value: budget.totalAmount },
       { label: "DESCONTO", value: 0 },
       { label: "IMPOSTOS", value: 0 },
@@ -226,40 +225,49 @@ export function BudgetList() {
       { label: "VALOR FINAL", value: budget.totalAmount, isFinal: true }
     ];
 
-    const totalLabelX = pageWidth - margin - 60; // X position for labels
-    const totalValueX = pageWidth - margin - 30; // X position for values
-    doc.setFontSize(8);
+    const totalRowHeight = 10; // Increased row height
+    const totalLabelColumnWidth = 50;
+    const totalValueColumnWidth = 40;
+    const textPadding = 2;
 
-    totals.forEach(total => {
-      doc.setFont('helvetica', 'bold');
-      doc.setDrawColor(0); 
-      
+    const totalBlockXStart = pageWidth - margin - (totalLabelColumnWidth + totalValueColumnWidth);
+    
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+
+    totalsData.forEach(total => {
+      const labelCellX = totalBlockXStart;
+      const valueCellX = totalBlockXStart + totalLabelColumnWidth;
+
       if (total.isFinal) {
         doc.setFillColor(50, 205, 50); // Green
-        doc.rect(totalLabelX -1 , currentY - 3.5, 60, 4.5, 'F');
-        doc.setTextColor(255, 255, 255); // White text for final value
+        doc.rect(labelCellX, currentY, totalLabelColumnWidth + totalValueColumnWidth, totalRowHeight, 'F');
+        doc.setTextColor(255, 255, 255); // White text
       } else {
         doc.setTextColor(0, 0, 0); // Black text
       }
       
-      doc.rect(totalLabelX - 1, currentY - 3.5, 30, 4.5); // Label box
-      doc.text(total.label, totalLabelX, currentY, { halign: 'left' });
+      doc.setDrawColor(0); // Black border for cells
+      doc.rect(labelCellX, currentY, totalLabelColumnWidth, totalRowHeight);
+      doc.text(total.label, labelCellX + textPadding, currentY + totalRowHeight / 2, { align: 'left', baseline: 'middle' });
       
-      doc.rect(totalValueX -1, currentY - 3.5, 30, 4.5); // Value box
-      doc.text(total.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), totalValueX + 28, currentY, { halign: 'right' });
-      currentY += 4.5;
+      doc.rect(valueCellX, currentY, totalValueColumnWidth, totalRowHeight);
+      const formattedValue = total.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      doc.text(formattedValue, valueCellX + totalValueColumnWidth - textPadding, currentY + totalRowHeight / 2, { align: 'right', baseline: 'middle' });
+      
+      currentY += totalRowHeight;
     });
     doc.setTextColor(0, 0, 0); // Reset text color
 
-    currentY += 5;
+    currentY += 5; // Space after totals block
 
     // Observations Section
     doc.setFont('helvetica', 'bold');
     doc.text("OBSERVAÇÕES:", margin, currentY);
     currentY += 3;
     doc.setLineWidth(0.2);
-    doc.rect(margin, currentY, contentWidth, 20); // Observations box
-    currentY += 20 + 5; // Height of box + padding
+    doc.rect(margin, currentY, contentWidth, 20); 
+    currentY += 20 + 5; 
 
     // Footer Section
     doc.setFontSize(7);
@@ -271,7 +279,7 @@ export function BudgetList() {
     doc.text(companyAddress, margin, currentY);
     currentY += 6;
     
-    doc.line(margin, currentY, pageWidth - margin, currentY); // Line above signatures
+    doc.line(margin, currentY, pageWidth - margin, currentY); 
     currentY += 8;
 
     // Signature Lines
@@ -279,10 +287,10 @@ export function BudgetList() {
     const signatureY = doc.internal.pageSize.getHeight() - 25 > currentY ? doc.internal.pageSize.getHeight() - 25 : currentY;
 
     doc.line(margin + 10, signatureY, margin + 70, signatureY);
-    doc.text("Cliente", margin + 30, signatureY + 4, { align: 'center'});
+    doc.text("Cliente", margin + 40, signatureY + 4, { align: 'center'}); // Centered text
 
     doc.line(pageWidth - margin - 70, signatureY, pageWidth - margin - 10, signatureY);
-    doc.text("Vendedor", pageWidth - margin - 40, signatureY + 4, {align: 'center'});
+    doc.text("Vendedor", pageWidth - margin - 40, signatureY + 4, {align: 'center'}); // Centered text
     
     doc.save(`pedido_venda_${budget.clientName.replace(/\s+/g, '_')}_${budget.id.substring(0,6)}.pdf`);
     toast({
@@ -383,3 +391,4 @@ export function BudgetList() {
     </div>
   );
 }
+
