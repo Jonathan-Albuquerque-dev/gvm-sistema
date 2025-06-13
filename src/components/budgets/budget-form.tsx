@@ -12,9 +12,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { Budget, BudgetStatus, Client, Product, BudgetItem } from '@/types';
-import { MOCK_PRODUCTS } from '@/lib/mock-data'; // MOCK_CLIENTS removed
 import { useEffect, useState, useCallback } from 'react';
-import { PlusCircle, Trash2, FileDown } from 'lucide-react';
+import { PlusCircle, Trash2, FileDown, Loader2 } from 'lucide-react';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, getDocs, query, orderBy } from 'firebase/firestore';
 
 const budgetItemSchema = z.object({
   productId: z.string().min(1, "Selecione um produto."),
@@ -31,19 +32,52 @@ const formSchema = z.object({
 });
 
 interface BudgetFormProps {
-  budget?: Budget;
+  budget?: Budget; // For editing (not fully implemented for Firestore yet)
   onSubmitSuccess?: () => void;
 }
 
 export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
   const { toast } = useToast();
-  const [clients, setClients] = useState<Client[]>([]); // Will be empty until Firebase fetch is implemented
+  const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingClients, setIsFetchingClients] = useState(true);
+  const [isFetchingProducts, setIsFetchingProducts] = useState(true);
   
   useEffect(() => {
-    // setClients(MOCK_CLIENTS); // Removed, clients will come from Firebase
-    setProducts(MOCK_PRODUCTS);
-  }, []);
+    const fetchClients = async () => {
+      setIsFetchingClients(true);
+      try {
+        const q = query(collection(db, 'clients'), orderBy('name'));
+        const querySnapshot = await getDocs(q);
+        const clientsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Client));
+        setClients(clientsData);
+      } catch (error) {
+        console.error("Erro ao buscar clientes:", error);
+        toast({ title: "Erro ao buscar clientes", description: "Não foi possível carregar a lista de clientes.", variant: "destructive" });
+      } finally {
+        setIsFetchingClients(false);
+      }
+    };
+
+    const fetchProducts = async () => {
+      setIsFetchingProducts(true);
+      try {
+        const q = query(collection(db, 'products'), orderBy('name'));
+        const querySnapshot = await getDocs(q);
+        const productsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        setProducts(productsData);
+      } catch (error) {
+        console.error("Erro ao buscar produtos:", error);
+        toast({ title: "Erro ao buscar produtos", description: "Não foi possível carregar a lista de produtos.", variant: "destructive" });
+      } finally {
+        setIsFetchingProducts(false);
+      }
+    };
+
+    fetchClients();
+    fetchProducts();
+  }, [toast]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -87,37 +121,65 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
     const { itemsTotal, materialCostInternal } = calculateTotals();
     setTotalAmount(itemsTotal); 
     setMaterialCost(materialCostInternal);
-  }, [selectedProducts, products, form, calculateTotals]);
+  }, [selectedProducts, products, calculateTotals]);
 
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    const clientName = clients.find(c => c.id === values.clientId)?.name || 'Cliente Desconhecido';
-    const budgetToSave: Omit<Budget, 'id' | 'createdAt' | 'updatedAt' | 'totalAmount' | 'materialCostInternal' | 'clientName'> & Partial<Pick<Budget, 'id'>> = {
-      clientId: values.clientId,
-      items: values.items.map(item => {
-          const product = products.find(p => p.id === item.productId);
-          return {
-              ...item,
-              unitPrice: product?.salePrice || 0,
-              productName: product?.name || 'Produto Desconhecido',
-              totalPrice: (product?.salePrice || 0) * item.quantity
-          };
-      }),
-      status: values.status,
-      observations: values.observations,
-    };
-    
-    console.log({ ...budgetToSave, totalAmount, materialCostInternal: materialCost, clientName });
-    
-    toast({
-      title: budget ? 'Orçamento Atualizado!' : 'Orçamento Criado!',
-      description: `O orçamento para ${clientName} foi ${budget ? 'atualizado' : 'salvo'} com sucesso.`,
-    });
-    if (onSubmitSuccess) {
-      onSubmitSuccess();
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
+    const selectedClient = clients.find(c => c.id === values.clientId);
+    if (!selectedClient) {
+        toast({ title: "Erro", description: "Cliente selecionado não encontrado.", variant: "destructive" });
+        setIsLoading(false);
+        return;
     }
-     if (!budget) { 
-        form.reset({ clientId: '', items: [], status: 'draft', observations: '' }); 
+
+    try {
+        if (budget) {
+            // TODO: Implement update logic for Firestore
+            console.log('Update budget:', { id: budget.id, ...values });
+            toast({
+            title: 'Funcionalidade em Desenvolvimento',
+            description: 'A atualização de orçamentos no Firebase será implementada em breve.',
+            });
+        } else {
+            const budgetData = {
+                clientId: values.clientId,
+                clientName: selectedClient.name,
+                items: values.items.map(item => {
+                    const product = products.find(p => p.id === item.productId);
+                    return {
+                        ...item,
+                        unitPrice: product?.salePrice || 0,
+                        productName: product?.name || 'Produto Desconhecido',
+                        totalPrice: (product?.salePrice || 0) * item.quantity
+                    };
+                }),
+                status: values.status,
+                observations: values.observations || '',
+                totalAmount,
+                materialCostInternal: materialCost,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            };
+            await addDoc(collection(db, 'budgets'), budgetData);
+            toast({
+                title: 'Orçamento Criado!',
+                description: `O orçamento para ${selectedClient.name} foi salvo com sucesso.`,
+            });
+            form.reset({ clientId: '', items: [], status: 'draft', observations: '' });
+        }
+      if (onSubmitSuccess) {
+        onSubmitSuccess();
+      }
+    } catch (error: any) {
+        console.error("Erro ao salvar orçamento:", error);
+        toast({
+            title: 'Erro ao Salvar Orçamento',
+            description: `Não foi possível salvar o orçamento. Detalhe: ${error.message || 'Erro desconhecido.'}`,
+            variant: 'destructive',
+        });
+    } finally {
+        setIsLoading(false);
     }
   }
 
@@ -140,17 +202,21 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Cliente*</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                        disabled={isFetchingClients || isLoading}
+                    >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecione um cliente" />
+                          <SelectValue placeholder={isFetchingClients ? "Carregando clientes..." : "Selecione um cliente"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                        {!isFetchingClients && clients.length === 0 && <p className="p-2 text-sm text-muted-foreground">Nenhum cliente cadastrado.</p>}
                         {clients.map(client => (
                           <SelectItem key={client.id} value={client.id}>{client.name} ({client.companyName || client.document})</SelectItem>
                         ))}
-                        {clients.length === 0 && <p className="p-2 text-sm text-muted-foreground">Nenhum cliente disponível.</p>}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -163,7 +229,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Status*</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione um status" />
@@ -185,10 +251,11 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <CardTitle className="text-lg">Itens do Orçamento</CardTitle>
-                  <Button type="button" variant="outline" size="sm" onClick={handleAddProduct}>
+                  <Button type="button" variant="outline" size="sm" onClick={handleAddProduct} disabled={isFetchingProducts || isLoading}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Item
                   </Button>
                 </div>
+                {isFetchingProducts && <p className="text-sm text-muted-foreground mt-2">Carregando produtos...</p>}
               </CardHeader>
               <CardContent className="space-y-4">
                 {fields.map((field, index) => (
@@ -207,13 +274,15 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                               form.setValue(`items.${index}.productName`, product?.name || '');
                             }} 
                             defaultValue={formField.value}
+                            disabled={isFetchingProducts || isLoading}
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Selecione um produto" />
+                                <SelectValue placeholder={isFetchingProducts ? "Carregando..." :"Selecione um produto"} />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
+                               {!isFetchingProducts && products.length === 0 && <p className="p-2 text-sm text-muted-foreground">Nenhum produto cadastrado.</p>}
                               {products.map(p => (
                                 <SelectItem key={p.id} value={p.id}>{p.name} (R$ {p.salePrice.toFixed(2)})</SelectItem>
                               ))}
@@ -230,14 +299,14 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                         <FormItem className="w-full md:w-32">
                           <FormLabel>Qtd*</FormLabel>
                           <FormControl>
-                            <Input type="number" {...field} />
+                            <Input type="number" {...field} disabled={isLoading} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                     <div className="w-full md:w-auto pt-0 md:pt-7">
-                        <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)} className="mt-1 md:mt-0">
+                        <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)} className="mt-1 md:mt-0" disabled={isLoading}>
                             <Trash2 className="h-4 w-4" />
                             <span className="sr-only">Remover item</span>
                         </Button>
@@ -269,6 +338,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                       placeholder="Adicione observações relevantes para este orçamento (ex: condições de pagamento, prazos específicos, etc.)"
                       className="resize-y"
                       {...field}
+                      disabled={isLoading}
                     />
                   </FormControl>
                   <FormMessage />
@@ -281,11 +351,12 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
             </div>
 
             <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
-                 <Button type="button" variant="outline" onClick={() => console.log("Gerar PDF")} className="w-full sm:w-auto">
+                 <Button type="button" variant="outline" onClick={() => console.log("Gerar PDF")} className="w-full sm:w-auto" disabled={isLoading}>
                     <FileDown className="mr-2 h-4 w-4" /> Gerar PDF (placeholder)
                 </Button>
-                <Button type="submit" className="w-full sm:w-auto">
-                {budget ? 'Salvar Alterações' : 'Criar Orçamento'}
+                <Button type="submit" className="w-full sm:w-auto" disabled={isLoading || isFetchingClients || isFetchingProducts}>
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {budget ? 'Salvar Alterações' : (isLoading ? 'Criando...' : 'Criar Orçamento')}
                 </Button>
             </div>
           </form>
@@ -294,3 +365,5 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
     </Card>
   );
 }
+
+    

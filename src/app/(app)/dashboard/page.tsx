@@ -5,21 +5,24 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/page-header';
-import { DollarSign, FileText, CheckCircle2, Clock3, PlusCircle, ArrowRight } from 'lucide-react'; 
+import { DollarSign, FileText, CheckCircle2, Clock3, PlusCircle, ArrowRight, Loader2 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
-import { MOCK_BUDGETS, MOCK_SALES_DATA } from '@/lib/mock-data';
-import { useEffect, useState } from 'react';
+import { MOCK_SALES_DATA } from '@/lib/mock-data'; // MOCK_BUDGETS removed
+import { useEffect, useState, useMemo } from 'react';
 import type { SalesData, Budget } from '@/types';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'; 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; 
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { db } from '@/lib/firebase';
+import { collection, query, onSnapshot, orderBy, limit, where } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 const chartConfig = {
   totalSales: {
     label: "Vendas",
-    color: "hsl(var(--primary))", 
+    color: "hsl(var(--primary))",
   },
 } satisfies ChartConfig;
 
@@ -32,22 +35,63 @@ const statusLabels: Record<Budget['status'], string> = {
 
 export default function DashboardPage() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [salesData, setSalesData] = useState<SalesData[]>([]);
+  const [isLoadingBudgets, setIsLoadingBudgets] = useState(true);
+  const [salesData, setSalesData] = useState<SalesData[]>([]); // Kept as mock for now
   const [timeRange, setTimeRange] = useState<string>("6months");
+  const { toast } = useToast();
 
   useEffect(() => {
-    setBudgets(MOCK_BUDGETS);
+    // Set static sales data
     setSalesData(MOCK_SALES_DATA);
-  }, []);
-  
-  const totalBudgets = budgets.length;
-  const approvedBudgetsCount = budgets.filter(b => b.status === 'approved').length;
-  const pendingBudgetsCount = budgets.filter(b => b.status === 'sent' || b.status === 'draft').length;
-  const monthlyRevenue = budgets
-    .filter(b => b.status === 'approved' && new Date(b.updatedAt).getMonth() === new Date().getMonth())
-    .reduce((sum, b) => sum + b.totalAmount, 0);
 
-  const recentBudgets = budgets.slice(0, 5).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // Fetch budgets from Firestore
+    setIsLoadingBudgets(true);
+    const budgetsQuery = query(collection(db, 'budgets'), orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(budgetsQuery, (querySnapshot) => {
+      const fetchedBudgets: Budget[] = [];
+      querySnapshot.forEach((doc) => {
+        fetchedBudgets.push({ id: doc.id, ...doc.data() } as Budget);
+      });
+      setBudgets(fetchedBudgets);
+      setIsLoadingBudgets(false);
+    }, (error) => {
+      console.error("Erro ao buscar orçamentos para o dashboard:", error);
+      toast({
+        title: "Erro ao carregar orçamentos",
+        description: "Não foi possível buscar os dados dos orçamentos.",
+        variant: "destructive",
+      });
+      setIsLoadingBudgets(false);
+    });
+
+    return () => unsubscribe(); // Cleanup listener on component unmount
+  }, [toast]);
+
+  const totalBudgets = useMemo(() => budgets.length, [budgets]);
+  const approvedBudgetsCount = useMemo(() => budgets.filter(b => b.status === 'approved').length, [budgets]);
+  const pendingBudgetsCount = useMemo(() => budgets.filter(b => b.status === 'sent' || b.status === 'draft').length, [budgets]);
+  
+  const monthlyRevenue = useMemo(() => {
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    return budgets
+      .filter(b => {
+        const budgetDate = new Date(b.updatedAt); // Assuming updatedAt reflects approval date or last relevant update
+        return b.status === 'approved' && 
+               budgetDate.getMonth() === currentMonth &&
+               budgetDate.getFullYear() === currentYear;
+      })
+      .reduce((sum, b) => sum + b.totalAmount, 0);
+  }, [budgets]);
+
+  const recentBudgets = useMemo(() => {
+    // Firestore query already sorts by createdAt desc. If we need more, we can fetch with limit.
+    // For now, let's sort the already fetched budgets to ensure the most recent are shown.
+    return [...budgets] // Create a new array to sort
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 5);
+  }, [budgets]);
 
 
   const kpiCardBaseClasses = "flex flex-col items-start text-left";
@@ -56,6 +100,14 @@ export default function DashboardPage() {
   const kpiTitleClasses = "text-sm font-medium text-muted-foreground";
   const kpiSubtitleClasses = "text-xs text-muted-foreground";
 
+  if (isLoadingBudgets) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Carregando dados do dashboard...</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -66,7 +118,6 @@ export default function DashboardPage() {
               <PlusCircle className="mr-2 h-4 w-4" /> Novo Orçamento
             </Button>
           </Link>
-          {/* Removido avatar e nome do usuário daqui */}
         </div>
       </PageHeader>
 
@@ -92,7 +143,7 @@ export default function DashboardPage() {
           <CardContent className="p-4 pt-0">
             <div className={kpiValueClasses}>{approvedBudgetsCount}</div>
              <CardTitle className={kpiTitleClasses}>Aprovados</CardTitle>
-            <p className={kpiSubtitleClasses}>Este mês</p>
+            <p className={kpiSubtitleClasses}>Geral</p> 
           </CardContent>
         </Card>
         <Card className={kpiCardBaseClasses}>
@@ -128,7 +179,7 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div>
               <CardTitle>Vendas por Período</CardTitle>
-              <CardDescription>Faturamento total nos últimos meses.</CardDescription>
+              <CardDescription>Faturamento total nos últimos meses (dados simulados).</CardDescription>
             </div>
             <Select value={timeRange} onValueChange={setTimeRange}>
               <SelectTrigger className="w-auto h-8 text-xs">
@@ -151,9 +202,9 @@ export default function DashboardPage() {
                   <YAxis tickFormatter={(value) => `R$${value / 1000}k`} tickLine={false} axisLine={false} tickMargin={8} />
                   <Tooltip
                     cursor={false}
-                    content={<ChartTooltipContent 
+                    content={<ChartTooltipContent
                       formatter={(value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                      indicator="dot" 
+                      indicator="dot"
                     />}
                   />
                   <Legend />
@@ -189,7 +240,7 @@ export default function DashboardPage() {
                         <div className="text-xs text-muted-foreground">
                           {new Date(budget.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                            {' - '}
-                           <Badge 
+                           <Badge
                              variant={budget.status === 'approved' ? 'default' : budget.status === 'rejected' ? 'destructive' : budget.status === 'sent' ? 'outline' : 'secondary'}
                              className={cn(
                               "text-xs px-1.5 py-0.5 font-normal",

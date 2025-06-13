@@ -6,8 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCap
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { Edit3, Trash2, MoreVertical, Eye, FileDown } from 'lucide-react';
-import { MOCK_BUDGETS, MOCK_PRODUCTS } from '@/lib/mock-data';
+import { Edit3, Trash2, MoreVertical, Eye, FileDown, Loader2 } from 'lucide-react';
+import { MOCK_PRODUCTS } from '@/lib/mock-data'; // Kept for PDF generation if product details change
 import type { Budget, BudgetStatus, Product, Client } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,6 +17,8 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, doc, deleteDoc, query, orderBy } from 'firebase/firestore';
 
 
 const statusLabels: Record<BudgetStatus, string> = {
@@ -36,33 +38,65 @@ const statusColors: Record<BudgetStatus, string> = {
 
 export function BudgetList() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  // const [clients, setClients] = useState<Client[]>([]); // Removed MOCK_CLIENTS
+  const [products, setProducts] = useState<Product[]>([]); // Still needed for PDF details if not in budget item
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<BudgetStatus | 'all'>('all');
   const { toast } = useToast();
   const router = useRouter();
   
   useEffect(() => {
-    setBudgets(MOCK_BUDGETS);
-    setProducts(MOCK_PRODUCTS);
-    // setClients(MOCK_CLIENTS); // Removed MOCK_CLIENTS usage
-  }, []);
+    // Fetch Products (needed for PDF generation if items only store IDs)
+    // MOCK_PRODUCTS is still used as a fallback if products not found live.
+    // Ideally, product details for PDF should be snapshot at budget creation or fetched live.
+    // For now, we rely on productName and unitPrice in BudgetItem
+    setProducts(MOCK_PRODUCTS); 
+
+    setIsLoading(true);
+    const q = query(collection(db, 'budgets'), orderBy('createdAt', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const budgetsData: Budget[] = [];
+      querySnapshot.forEach((doc) => {
+        budgetsData.push({ id: doc.id, ...doc.data() } as Budget);
+      });
+      setBudgets(budgetsData);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Erro ao buscar orçamentos:", error);
+      toast({ title: "Erro ao buscar orçamentos", description: "Não foi possível carregar a lista.", variant: "destructive" });
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [toast]);
 
   const handleEdit = (budgetId: string) => {
     toast({
       title: 'Edição em Desenvolvimento',
-      description: `A funcionalidade para editar o orçamento ${budgetId.substring(0,8)}... está sendo implementada. Em breve você poderá acessar /budgets/edit/${budgetId}`,
+      description: `A funcionalidade para editar o orçamento ${budgetId.substring(0,8)}... está sendo implementada.`,
     });
     // router.push(`/budgets/edit/${budgetId}`); // Future implementation
   };
 
-  const handleDelete = (budgetId: string) => {
-    setBudgets(prevBudgets => prevBudgets.filter(budget => budget.id !== budgetId));
-    toast({
-      title: 'Orçamento Excluído',
-      description: `O orçamento ${budgetId.substring(0,8)}... foi excluído (localmente).`,
-    });
+  const handleDelete = async (budgetId: string, budgetClientName: string) => {
+    if (!window.confirm(`Tem certeza que deseja excluir o orçamento para "${budgetClientName}" (ID: ${budgetId.substring(0,8)})?`)) {
+        return;
+    }
+    try {
+      await deleteDoc(doc(db, 'budgets', budgetId));
+      toast({
+        title: 'Orçamento Excluído!',
+        description: `O orçamento para "${budgetClientName}" foi excluído com sucesso.`,
+      });
+    } catch (error) {
+      console.error("Erro ao excluir orçamento:", error);
+      toast({
+        title: 'Erro ao Excluir',
+        description: `Não foi possível excluir o orçamento. Tente novamente.`,
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleViewDetails = (budgetId: string) => {
@@ -75,18 +109,13 @@ export function BudgetList() {
 
   const handleDownloadPdf = (budget: Budget) => {
     const doc = new jsPDF();
-    // Since MOCK_CLIENTS is removed, currentClient will be undefined if we try to find it in an empty local list.
-    // The PDF generation already has fallbacks like budget.clientName.
-    // If more detailed client info from Firebase is needed here in the future,
-    // this component would need to fetch client data similar to ClientList.
-    const currentClient: Client | undefined = undefined; // Explicitly undefined as we don't have the clients list anymore
+    const currentClient: Client | undefined = undefined; // Client details for PDF header are not fetched live in this list. Rely on budget.clientName
 
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 10;
     const contentWidth = pageWidth - margin * 2;
     let currentY = 20;
 
-    // Header Section
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.text("GVM", margin, currentY);
@@ -106,23 +135,26 @@ export function BudgetList() {
     doc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 8;
 
-    // Client Information Section
     doc.setFontSize(8);
     const fieldHeight = 5;
     const col1X = margin;
     const col2X = margin + contentWidth / 2.2;
 
+    // Client details for PDF header are minimal here, relying on budget.clientName
     const clientDetails = [
-      { label: "CLIENTE:", value: currentClient?.name || budget.clientName || "N/A" },
-      { label: "ENDEREÇO:", value: currentClient?.address || "N/A" },
-      { label: "CNPJ:", value: currentClient?.document || "N/A" },
+      { label: "CLIENTE:", value: budget.clientName || "N/A" },
+      // Add more fields here if they were stored directly in the budget object
+      // or if you decide to fetch client details specifically for PDF generation.
+      { label: "ENDEREÇO:", value: "N/A (Buscar do Cliente)" }, 
+      { label: "CNPJ:", value: "N/A (Buscar do Cliente)" },
     ];
-    const clientDetailsCol2 = [
-      { label: "RAZÃO SOCIAL:", value: currentClient?.companyName || (currentClient?.name?.includes(' ') ? "N/A" : "Pessoa Física") },
-      { label: "IE:", value: "N/A" }, // Placeholder
-      { label: "CEP:", value: "N/A" }, // Placeholder
-      { label: "TEL:", value: currentClient?.phone || "N/A" },
+     const clientDetailsCol2 = [
+      { label: "RAZÃO SOCIAL:", value: "N/A (Buscar do Cliente)" },
+      { label: "IE:", value: "N/A" },
+      { label: "CEP:", value: "N/A" },
+      { label: "TEL:", value: "N/A (Buscar do Cliente)" },
     ];
+
 
     clientDetails.forEach(detail => {
       doc.setFont('helvetica', 'bold');
@@ -152,7 +184,6 @@ export function BudgetList() {
     doc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 8;
 
-    // Validity and Delivery Section
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.text("VALIDO POR 7 DIAS", col1X, currentY);
@@ -164,23 +195,17 @@ export function BudgetList() {
     doc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 2;
 
-    // Items Table
     const tableColumn = ["CÓDIGO", "DESCRIÇÃO", "QTDA", "VALOR UNI", "TOTAL"];
     const tableRows: (string | number)[][] = [];
 
     budget.items.forEach(item => {
-      const productDetails = products.find(p => p.id === item.productId);
-      const itemName = productDetails?.name || item.productName || 'Produto Desconhecido';
-      const unitPrice = item.unitPrice || 0;
-      const quantity = item.quantity || 0;
-      const totalPrice = item.totalPrice || (unitPrice * quantity);
-
+      // Product details (name, unitPrice) are taken directly from budget.items
       const budgetItemData = [
         item.productId.substring(0,8).toUpperCase(),
-        itemName,
-        quantity,
-        unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-        totalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+        item.productName, // Relies on productName stored in BudgetItem
+        item.quantity,
+        item.unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), // Relies on unitPrice stored
+        item.totalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) // Relies on totalPrice stored
       ];
       tableRows.push(budgetItemData);
     });
@@ -190,17 +215,8 @@ export function BudgetList() {
       body: tableRows,
       startY: currentY,
       theme: 'plain',
-      headStyles: {
-        fillColor: [255, 255, 0], 
-        textColor: [0, 0, 0], 
-        fontStyle: 'bold',
-        fontSize: 8,
-        halign: 'center'
-      },
-      bodyStyles: {
-        fontSize: 8,
-        cellPadding: {top: 1.5, right: 2, bottom: 1.5, left: 2},
-      },
+      headStyles: { fillColor: [255, 255, 0], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 8, halign: 'center'},
+      bodyStyles: { fontSize: 8, cellPadding: {top: 1.5, right: 2, bottom: 1.5, left: 2}, },
       columnStyles: {
         0: { cellWidth: 20, halign: 'left' }, 
         1: { cellWidth: 'auto', halign: 'left' }, 
@@ -220,100 +236,61 @@ export function BudgetList() {
 
     currentY = (doc as any).lastAutoTable.finalY + 5;
 
-    // Totals Section
     const totalsData = [
       { label: "VALOR TOTAL", value: budget.totalAmount },
-      { label: "DESCONTO", value: 0 },
-      { label: "IMPOSTOS", value: 0 },
+      { label: "DESCONTO", value: 0 }, { label: "IMPOSTOS", value: 0 },
       { label: "TRANSPORTE", value: 0 },
       { label: "VALOR FINAL", value: budget.totalAmount, isFinal: true }
     ];
-
-    const totalRowHeight = 10; 
-    const totalLabelColumnWidth = 50;
-    const totalValueColumnWidth = 40;
-    const textPadding = 2;
-
+    const totalRowHeight = 10; const totalLabelColumnWidth = 50; const totalValueColumnWidth = 40; const textPadding = 2;
     const totalBlockXStart = pageWidth - margin - (totalLabelColumnWidth + totalValueColumnWidth);
-    
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-
+    doc.setFontSize(8); doc.setFont('helvetica', 'bold');
     totalsData.forEach(total => {
-      const labelCellX = totalBlockXStart;
-      const valueCellX = totalBlockXStart + totalLabelColumnWidth;
-
-      if (total.isFinal) {
-        doc.setFillColor(50, 205, 50); 
-        doc.rect(labelCellX, currentY, totalLabelColumnWidth + totalValueColumnWidth, totalRowHeight, 'F');
-        doc.setTextColor(255, 255, 255); 
-      } else {
-        doc.setTextColor(0, 0, 0); 
-      }
-      
-      doc.setDrawColor(0); 
-      doc.rect(labelCellX, currentY, totalLabelColumnWidth, totalRowHeight);
+      const labelCellX = totalBlockXStart; const valueCellX = totalBlockXStart + totalLabelColumnWidth;
+      if (total.isFinal) { doc.setFillColor(50, 205, 50); doc.rect(labelCellX, currentY, totalLabelColumnWidth + totalValueColumnWidth, totalRowHeight, 'F'); doc.setTextColor(255, 255, 255); } else { doc.setTextColor(0, 0, 0); }
+      doc.setDrawColor(0); doc.rect(labelCellX, currentY, totalLabelColumnWidth, totalRowHeight);
       doc.text(total.label, labelCellX + textPadding, currentY + totalRowHeight / 2, { align: 'left', baseline: 'middle' });
-      
       doc.rect(valueCellX, currentY, totalValueColumnWidth, totalRowHeight);
       const formattedValue = total.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
       doc.text(formattedValue, valueCellX + totalValueColumnWidth - textPadding, currentY + totalRowHeight / 2, { align: 'right', baseline: 'middle' });
-      
       currentY += totalRowHeight;
     });
-    doc.setTextColor(0, 0, 0); 
+    doc.setTextColor(0, 0, 0); currentY += 5; 
 
-    currentY += 5; 
-
-    // Observations Section
-    doc.setFont('helvetica', 'bold');
-    doc.text("OBSERVAÇÕES:", margin, currentY);
-    currentY += 3;
-    doc.setLineWidth(0.2);
-    doc.rect(margin, currentY, contentWidth, 20); 
-    if (budget.observations) {
-        doc.setFont('helvetica', 'normal');
-        const observationLines = doc.splitTextToSize(budget.observations, contentWidth - 4); // -4 for padding
-        doc.text(observationLines, margin + 2, currentY + 4);
-    }
+    doc.setFont('helvetica', 'bold'); doc.text("OBSERVAÇÕES:", margin, currentY); currentY += 3;
+    doc.setLineWidth(0.2); doc.rect(margin, currentY, contentWidth, 20); 
+    if (budget.observations) { doc.setFont('helvetica', 'normal'); const observationLines = doc.splitTextToSize(budget.observations, contentWidth - 4); doc.text(observationLines, margin + 2, currentY + 4); }
     currentY += 20 + 5; 
 
-    // Footer Section
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
-    const companyContact = "CONTATO: (85) 9.8764-5281";
-    const companyAddress = "Rua Paolo Afonço, 3703 Maracanaú-CE / CNPJ: 36.245.901/0001-90";
-    doc.text(companyContact, margin, currentY);
-    currentY += 4;
-    doc.text(companyAddress, margin, currentY);
-    currentY += 6;
-    
-    doc.line(margin, currentY, pageWidth - margin, currentY); 
-    currentY += 8;
+    doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+    const companyContact = "CONTATO: (85) 9.8764-5281"; const companyAddress = "Rua Paolo Afonço, 3703 Maracanaú-CE / CNPJ: 36.245.901/0001-90";
+    doc.text(companyContact, margin, currentY); currentY += 4; doc.text(companyAddress, margin, currentY); currentY += 6;
+    doc.line(margin, currentY, pageWidth - margin, currentY); currentY += 8;
 
-    // Signature Lines
-    doc.setFontSize(8);
-    const signatureY = doc.internal.pageSize.getHeight() - 25 > currentY ? doc.internal.pageSize.getHeight() - 25 : currentY;
-
-    doc.line(margin + 10, signatureY, margin + 70, signatureY);
-    doc.text("Cliente", margin + 40, signatureY + 4, { align: 'center'}); 
-
-    doc.line(pageWidth - margin - 70, signatureY, pageWidth - margin - 10, signatureY);
-    doc.text("Vendedor", pageWidth - margin - 40, signatureY + 4, {align: 'center'}); 
+    doc.setFontSize(8); const signatureY = doc.internal.pageSize.getHeight() - 25 > currentY ? doc.internal.pageSize.getHeight() - 25 : currentY;
+    doc.line(margin + 10, signatureY, margin + 70, signatureY); doc.text("Cliente", margin + 40, signatureY + 4, { align: 'center'}); 
+    doc.line(pageWidth - margin - 70, signatureY, pageWidth - margin - 10, signatureY); doc.text("Vendedor", pageWidth - margin - 40, signatureY + 4, {align: 'center'}); 
     
     doc.save(`pedido_venda_${budget.clientName.replace(/\s+/g, '_')}_${budget.id.substring(0,6)}.pdf`);
-    toast({
-      title: 'PDF Gerado',
-      description: `O PDF para o orçamento ${budget.id.substring(0,8)} foi gerado com sucesso.`,
-    });
+    toast({ title: 'PDF Gerado', description: `O PDF para o orçamento ${budget.id.substring(0,8)} foi gerado.` });
   };
   
   const filteredBudgets = budgets.filter(budget => {
-    const matchesSearchTerm = budget.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const searchString = budget.clientName?.toLowerCase() || '';
+    const matchesSearchTerm = searchString.includes(searchTerm.toLowerCase()) ||
                               budget.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || budget.status === statusFilter;
     return matchesSearchTerm && matchesStatus;
   });
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Carregando orçamentos...</p>
+      </div>
+    );
+  }
 
   return (
      <div className="space-y-4">
@@ -376,7 +353,7 @@ export function BudgetList() {
                         <DropdownMenuItem onClick={() => handleDownloadPdf(budget)}>
                           <FileDown className="mr-2 h-4 w-4" /> Baixar PDF
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(budget.id)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
+                        <DropdownMenuItem onClick={() => handleDelete(budget.id, budget.clientName)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
                           <Trash2 className="mr-2 h-4 w-4" /> Excluir
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -387,12 +364,12 @@ export function BudgetList() {
             ) : (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center">
-                  Nenhum orçamento encontrado.
+                  Nenhum orçamento encontrado. {budgets.length === 0 && !searchTerm && statusFilter === 'all' ? "Crie o primeiro orçamento." : ""}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
-            {filteredBudgets.length === 0 && (searchTerm || statusFilter !== 'all') && (
+            {filteredBudgets.length === 0 && (budgets.length > 0 || searchTerm || statusFilter !== 'all') && (
              <TableCaption>Nenhum orçamento encontrado para os filtros aplicados.</TableCaption>
            )}
         </Table>
@@ -400,3 +377,5 @@ export function BudgetList() {
     </div>
   );
 }
+
+    
