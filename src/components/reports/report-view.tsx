@@ -12,15 +12,20 @@ interface ReportViewProps {
 }
 
 export function ReportView({ data, title, description }: ReportViewProps) {
-  if (!data || data.length === 0) {
+  const hasData = data && data.length > 0;
+  const effectiveDescription = hasData 
+    ? description 
+    : "Utilize os filtros acima e clique em 'Gerar Relatório' para visualizar os dados.";
+
+  if (!hasData) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>{title}</CardTitle>
-          {description && <CardDescription>{description}</CardDescription>}
+          {effectiveDescription && <CardDescription>{effectiveDescription}</CardDescription>}
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground text-center py-8">Nenhum dado para exibir neste relatório.</p>
+          <p className="text-muted-foreground text-center py-8">Nenhum dado para exibir com os filtros selecionados ou o relatório ainda não foi gerado.</p>
         </CardContent>
       </Card>
     );
@@ -34,7 +39,7 @@ export function ReportView({ data, title, description }: ReportViewProps) {
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        {description && <CardDescription>{description}</CardDescription>}
+        {effectiveDescription && <CardDescription>{effectiveDescription}</CardDescription>}
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 md:grid-cols-2 mb-6">

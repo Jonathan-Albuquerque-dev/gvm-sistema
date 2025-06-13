@@ -24,13 +24,12 @@ export default function ReportsPage() {
   const [clientFilter, setClientFilter] = useState<string | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<ProductCategory | 'all'>('all'); // For product-based reports
 
-  const [reportData, setReportData] = useState<Budget[]>([]);
+  const [reportData, setReportData] = useState<Budget[]>([]); // Inicializa como array vazio
   const [clients, setClients] = useState<Client[]>([]);
 
   useEffect(() => {
     setClients(MOCK_CLIENTS);
-    // Initially load all budgets, filtering will be applied
-    setReportData(MOCK_BUDGETS); 
+    // Não inicializa reportData aqui, será feito pelo handleGenerateReport
   }, []);
 
   const filteredReportData = useMemo(() => {
@@ -41,13 +40,12 @@ export default function ReportsPage() {
       const matchesStatus = statusFilter === 'all' || budget.status === statusFilter;
       const matchesClient = clientFilter === 'all' || budget.clientId === clientFilter;
       
-      // Category filter would apply if report is product-centric. For budget report, it might filter budgets containing products of that category.
-      // For simplicity, this example doesn't deeply filter by product category within budget items.
+      // A lógica de filtro de categoria está comentada, então não é aplicada.
       // const matchesCategory = categoryFilter === 'all' || budget.items.some(item => MOCK_PRODUCTS.find(p => p.id === item.productId)?.category === categoryFilter);
 
       return matchesDate && matchesStatus && matchesClient;
     });
-  }, [dateRange, statusFilter, clientFilter, categoryFilter]);
+  }, [dateRange, statusFilter, clientFilter]); // Removido categoryFilter das dependências pois não é usado na lógica ativa
   
   const handleGenerateReport = () => {
     setReportData(filteredReportData);
