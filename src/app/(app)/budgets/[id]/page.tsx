@@ -5,10 +5,10 @@ import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Loader2, AlertTriangle, FileText, ShoppingCart, Edit, MinusCircle, PlusCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertTriangle, FileText, ShoppingCart, Edit, Percent } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import type { Budget, BudgetStatus, BudgetItem } from '@/types';
+import type { Budget, BudgetStatus, BudgetItem, DiscountType } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Link from 'next/link';
@@ -26,6 +26,11 @@ const statusColors: Record<BudgetStatus, string> = {
   approved: 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700',
   rejected: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700',
 };
+
+const discountTypeLabels: Record<DiscountType, string> = {
+    fixed: 'Fixo (R$)',
+    percentage: 'Percentual (%)'
+}
 
 
 export default function BudgetDetailPage() {
@@ -65,20 +70,29 @@ export default function BudgetDetailPage() {
     }
   }, [budgetId]);
 
-  const DetailItem = ({ label, value, currency = false, className, isNegative = false, isPositive = false }: { label: string; value?: string | number | null, currency?: boolean, className?: string, isNegative?: boolean, isPositive?: boolean }) => (
-    value !== undefined && value !== null && (typeof value !== 'number' || value !== 0 || label === "Desconto (R$)") ? ( // Always show discount even if 0
+  const DetailItem = ({ label, value, currency = false, className, isNegative = false, isPositive = false, suffix }: { label: string; value?: string | number | null, currency?: boolean, className?: string, isNegative?: boolean, isPositive?: boolean, suffix?: string }) => (
+    value !== undefined && value !== null && (typeof value !== 'number' || value !== 0 || label.toLowerCase().includes("desconto")) ? ( 
       <div className={`py-2 ${className}`}>
         <p className="text-sm font-medium text-muted-foreground">{label}</p>
         <p className={`text-md ${isNegative ? 'text-red-600 dark:text-red-400' : ''} ${isPositive ? 'text-green-600 dark:text-green-400' : ''}`}>
           {currency && typeof value === 'number' ? 
             (isNegative && value > 0 ? -value : value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) 
             : value}
+          {suffix && typeof value === 'number' && value > 0 ? suffix : ''}
         </p>
       </div>
     ) : null
   );
 
   const subtotalItems = budget?.items.reduce((sum, item) => sum + item.totalPrice, 0) || 0;
+  
+  const discountLabel = () => {
+    if (!budget || budget.appliedDiscountAmount === undefined || budget.appliedDiscountAmount === 0) return "Desconto";
+    if (budget.discountType === 'percentage' && budget.discountInput) {
+      return `Desconto (${budget.discountInput.toLocaleString('pt-BR')}%)`;
+    }
+    return "Desconto (R$)";
+  }
 
   return (
     <>
@@ -135,11 +149,20 @@ export default function BudgetDetailPage() {
                 <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2">
                     <DetailItem label="Data de Criação" value={new Date(budget.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} />
                     {budget.updatedAt && <DetailItem label="Última Atualização" value={new Date(budget.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} />}
+                    
                     <div className="md:col-span-3 mt-4 pt-4 border-t">
                         <p className="text-lg font-semibold">Resumo Financeiro</p>
                     </div>
                     <DetailItem label="Subtotal dos Itens" value={subtotalItems} currency className="md:col-span-1" />
-                    <DetailItem label="Desconto (R$)" value={budget.discount} currency className="md:col-span-1" isNegative={budget.discount !== undefined && budget.discount > 0} />
+                    
+                    <DetailItem 
+                        label={discountLabel()}
+                        value={budget.appliedDiscountAmount} 
+                        currency 
+                        className="md:col-span-1" 
+                        isNegative={budget.appliedDiscountAmount !== undefined && budget.appliedDiscountAmount > 0}
+                    />
+
                     <DetailItem label="Frete (R$)" value={budget.shippingCost} currency className="md:col-span-1" isPositive={budget.shippingCost !== undefined && budget.shippingCost > 0}/>
                     <DetailItem label="Impostos (R$)" value={budget.taxAmount} currency className="md:col-span-1" isPositive={budget.taxAmount !== undefined && budget.taxAmount > 0}/>
                     

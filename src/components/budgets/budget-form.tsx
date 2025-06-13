@@ -10,10 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import type { Budget, BudgetStatus, Client, Product, BudgetItem } from '@/types';
+import type { Budget, BudgetStatus, Client, Product, DiscountType } from '@/types';
 import { useEffect, useState, useCallback } from 'react';
-import { PlusCircle, Trash2, FileDown, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, FileDown, Loader2, Percent, CaseUpper } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 
@@ -29,7 +30,8 @@ const formSchema = z.object({
   items: z.array(budgetItemSchema).min(1, "Adicione pelo menos um item ao orçamento."),
   status: z.enum(['draft', 'sent', 'approved', 'rejected'] as [BudgetStatus, ...BudgetStatus[]], { required_error: 'Selecione um status.' }),
   observations: z.string().optional(),
-  discount: z.coerce.number().min(0, "Desconto não pode ser negativo.").optional().default(0),
+  discountType: z.enum(['fixed', 'percentage'] as [DiscountType, ...DiscountType[]]).optional().default('fixed'),
+  discountInput: z.coerce.number().min(0, "Valor do desconto não pode ser negativo.").optional().default(0),
   shippingCost: z.coerce.number().min(0, "Frete não pode ser negativo.").optional().default(0),
   taxAmount: z.coerce.number().min(0, "Impostos não podem ser negativos.").optional().default(0),
 });
@@ -101,7 +103,8 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
       })),
       status: budget.status,
       observations: budget.observations || '',
-      discount: budget.discount || 0,
+      discountType: budget.discountType || 'fixed',
+      discountInput: budget.discountInput || 0,
       shippingCost: budget.shippingCost || 0,
       taxAmount: budget.taxAmount || 0,
     } : {
@@ -109,7 +112,8 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
       items: [],
       status: 'draft',
       observations: '',
-      discount: 0,
+      discountType: 'fixed',
+      discountInput: 0,
       shippingCost: 0,
       taxAmount: 0,
     },
@@ -127,12 +131,13 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
             })),
             status: budget.status,
             observations: budget.observations || '',
-            discount: budget.discount || 0,
+            discountType: budget.discountType || 'fixed',
+            discountInput: budget.discountInput || 0,
             shippingCost: budget.shippingCost || 0,
             taxAmount: budget.taxAmount || 0,
         });
     } else {
-        form.reset({ clientId: '', items: [], status: 'draft', observations: '', discount: 0, shippingCost: 0, taxAmount: 0 });
+        form.reset({ clientId: '', items: [], status: 'draft', observations: '', discountType: 'fixed', discountInput: 0, shippingCost: 0, taxAmount: 0 });
     }
   }, [budget, form]);
 
@@ -143,11 +148,13 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
   });
 
   const watchedItems = form.watch('items');
-  const watchedDiscount = form.watch('discount');
+  const watchedDiscountType = form.watch('discountType');
+  const watchedDiscountInput = form.watch('discountInput');
   const watchedShippingCost = form.watch('shippingCost');
   const watchedTaxAmount = form.watch('taxAmount');
 
   const [subtotalItems, setSubtotalItems] = useState(0);
+  const [actualDiscountAmount, setActualDiscountAmount] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
   const [materialCost, setMaterialCost] = useState(0);
 
@@ -158,24 +165,31 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
     }, 0);
     setSubtotalItems(currentSubtotalItems);
 
+    let calculatedDiscount = 0;
+    if (watchedDiscountType === 'percentage') {
+      calculatedDiscount = currentSubtotalItems * ((watchedDiscountInput || 0) / 100);
+    } else { // fixed
+      calculatedDiscount = watchedDiscountInput || 0;
+    }
+    setActualDiscountAmount(calculatedDiscount);
+
     const currentMaterialCostInternal = watchedItems.reduce((sum, item) => {
       const product = products.find(p => p.id === item.productId);
       return sum + (product ? product.costPrice * item.quantity : 0);
     }, 0);
     setMaterialCost(currentMaterialCostInternal);
-
-    const discountValue = watchedDiscount || 0;
+    
     const shippingCostValue = watchedShippingCost || 0;
     const taxAmountValue = watchedTaxAmount || 0;
     
-    const finalTotal = currentSubtotalItems - discountValue + shippingCostValue + taxAmountValue;
+    const finalTotal = currentSubtotalItems - calculatedDiscount + shippingCostValue + taxAmountValue;
     setTotalAmount(finalTotal);
 
-  }, [watchedItems, products, watchedDiscount, watchedShippingCost, watchedTaxAmount]);
+  }, [watchedItems, products, watchedDiscountType, watchedDiscountInput, watchedShippingCost, watchedTaxAmount]);
 
   useEffect(() => {
     calculateTotals();
-  }, [watchedItems, products, watchedDiscount, watchedShippingCost, watchedTaxAmount, calculateTotals]);
+  }, [watchedItems, products, watchedDiscountType, watchedDiscountInput, watchedShippingCost, watchedTaxAmount, calculateTotals]);
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -198,9 +212,15 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
         };
     });
 
-    // Recalculate totalAmount just before submit to ensure accuracy with latest form values
     const finalSubtotalItems = budgetItemsData.reduce((sum, item) => sum + item.totalPrice, 0);
-    const finalTotalAmount = finalSubtotalItems - (values.discount || 0) + (values.shippingCost || 0) + (values.taxAmount || 0);
+    let finalAppliedDiscountAmount = 0;
+    if (values.discountType === 'percentage') {
+      finalAppliedDiscountAmount = finalSubtotalItems * ((values.discountInput || 0) / 100);
+    } else {
+      finalAppliedDiscountAmount = values.discountInput || 0;
+    }
+
+    const finalTotalAmount = finalSubtotalItems - finalAppliedDiscountAmount + (values.shippingCost || 0) + (values.taxAmount || 0);
     const finalMaterialCostInternal = values.items.reduce((sum, item) => {
         const product = products.find(p => p.id === item.productId);
         return sum + (product ? product.costPrice * item.quantity : 0);
@@ -208,46 +228,38 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
 
 
     try {
+        const budgetDataPayload = {
+            clientId: values.clientId,
+            clientName: selectedClient.name,
+            items: budgetItemsData,
+            status: values.status,
+            observations: values.observations || '',
+            appliedDiscountAmount: finalAppliedDiscountAmount,
+            discountType: values.discountType,
+            discountInput: values.discountInput,
+            shippingCost: values.shippingCost || 0,
+            taxAmount: values.taxAmount || 0,
+            totalAmount: finalTotalAmount,
+            materialCostInternal: finalMaterialCostInternal,
+            updatedAt: new Date().toISOString(),
+        };
+
         if (budget && budget.id) {
-            const budgetDataForUpdate = {
-                clientId: values.clientId,
-                clientName: selectedClient.name,
-                items: budgetItemsData,
-                status: values.status,
-                observations: values.observations || '',
-                discount: values.discount || 0,
-                shippingCost: values.shippingCost || 0,
-                taxAmount: values.taxAmount || 0,
-                totalAmount: finalTotalAmount, // Use o total final calculado
-                materialCostInternal: finalMaterialCostInternal,
-                updatedAt: new Date().toISOString(),
-            };
-            await updateDoc(doc(db, 'budgets', budget.id), budgetDataForUpdate);
+            await updateDoc(doc(db, 'budgets', budget.id), budgetDataPayload);
             toast({
                 title: 'Orçamento Atualizado!',
                 description: `O orçamento para ${selectedClient.name} foi atualizado com sucesso.`,
             });
         } else {
-            const budgetDataForCreate = {
-                clientId: values.clientId,
-                clientName: selectedClient.name,
-                items: budgetItemsData,
-                status: values.status,
-                observations: values.observations || '',
-                discount: values.discount || 0,
-                shippingCost: values.shippingCost || 0,
-                taxAmount: values.taxAmount || 0,
-                totalAmount: finalTotalAmount, // Use o total final calculado
-                materialCostInternal: finalMaterialCostInternal,
+            await addDoc(collection(db, 'budgets'), {
+                ...budgetDataPayload,
                 createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-            };
-            await addDoc(collection(db, 'budgets'), budgetDataForCreate);
+            });
             toast({
                 title: 'Orçamento Criado!',
                 description: `O orçamento para ${selectedClient.name} foi salvo com sucesso.`,
             });
-            form.reset({ clientId: '', items: [], status: 'draft', observations: '', discount: 0, shippingCost: 0, taxAmount: 0 });
+            form.reset({ clientId: '', items: [], status: 'draft', observations: '', discountType: 'fixed', discountInput: 0, shippingCost: 0, taxAmount: 0 });
         }
       if (onSubmitSuccess) {
         onSubmitSuccess();
@@ -405,47 +417,102 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
               </CardContent>
             </Card>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <FormField
-                    control={form.control}
-                    name="discount"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Desconto (R$)</FormLabel>
-                        <FormControl>
-                        <Input type="number" step="0.01" placeholder="0.00" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-lg">Descontos, Frete e Impostos</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <FormField
+                        control={form.control}
+                        name="discountType"
+                        render={({ field }) => (
+                            <FormItem className="space-y-3">
+                            <FormLabel>Tipo de Desconto</FormLabel>
+                            <FormControl>
+                                <RadioGroup
+                                onValueChange={(value) => {
+                                    field.onChange(value);
+                                    form.setValue('discountInput', 0); // Reset discount input when type changes
+                                }}
+                                value={field.value}
+                                className="flex flex-col sm:flex-row gap-x-4 gap-y-2"
+                                disabled={isLoading}
+                                >
+                                <FormItem className="flex items-center space-x-2 space-y-0">
+                                    <FormControl>
+                                    <RadioGroupItem value="fixed" />
+                                    </FormControl>
+                                    <FormLabel className="font-normal">Valor Fixo (R$)</FormLabel>
+                                </FormItem>
+                                <FormItem className="flex items-center space-x-2 space-y-0">
+                                    <FormControl>
+                                    <RadioGroupItem value="percentage" />
+                                    </FormControl>
+                                    <FormLabel className="font-normal">Porcentagem (%)</FormLabel>
+                                </FormItem>
+                                </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="discountInput"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>
+                                Valor do Desconto {watchedDiscountType === 'percentage' ? '(%)' : '(R$)'}
+                            </FormLabel>
+                            <FormControl>
+                            <Input 
+                                type="number" 
+                                step={watchedDiscountType === 'percentage' ? "0.1" : "0.01"} 
+                                placeholder="0.00" 
+                                {...field} 
+                                disabled={isLoading} 
+                            />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    {actualDiscountAmount > 0 && (
+                        <p className="text-sm text-muted-foreground">
+                            Desconto aplicado: {actualDiscountAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </p>
                     )}
-                />
-                <FormField
-                    control={form.control}
-                    name="shippingCost"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Frete (R$)</FormLabel>
-                        <FormControl>
-                        <Input type="number" step="0.01" placeholder="0.00" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="taxAmount"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Impostos (R$)</FormLabel>
-                        <FormControl>
-                        <Input type="number" step="0.01" placeholder="0.00" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-            </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField
+                            control={form.control}
+                            name="shippingCost"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Frete (R$)</FormLabel>
+                                <FormControl>
+                                <Input type="number" step="0.01" placeholder="0.00" {...field} disabled={isLoading} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="taxAmount"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Impostos (R$)</FormLabel>
+                                <FormControl>
+                                <Input type="number" step="0.01" placeholder="0.00" {...field} disabled={isLoading} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                    </div>
+                </CardContent>
+            </Card>
 
 
             <div className="grid grid-cols-1 md:grid-cols-1 gap-6"> 

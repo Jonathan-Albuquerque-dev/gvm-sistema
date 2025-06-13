@@ -38,6 +38,7 @@ export interface BudgetItem {
 }
 
 export type BudgetStatus = 'draft' | 'sent' | 'approved' | 'rejected';
+export type DiscountType = 'fixed' | 'percentage';
 
 export interface Budget {
   id: string;
@@ -48,9 +49,13 @@ export interface Budget {
   totalAmount: number; // Este será o valor final após descontos, fretes e impostos
   status: BudgetStatus;
   observations?: string;
-  discount?: number; // Novo campo
-  shippingCost?: number; // Novo campo
-  taxAmount?: number; // Novo campo
+  
+  appliedDiscountAmount?: number; // Valor monetário do desconto efetivamente aplicado
+  discountType?: DiscountType;    // Tipo de desconto ('fixed' ou 'percentage')
+  discountInput?: number;         // Valor inserido pelo usuário (R$ ou %)
+
+  shippingCost?: number; 
+  taxAmount?: number; 
   createdAt: string;
   updatedAt: string;
   // userId?: string; 
