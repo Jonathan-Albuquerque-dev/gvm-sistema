@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Edit3, Trash2, MoreVertical, Eye, FileDown } from 'lucide-react';
-import { MOCK_BUDGETS, MOCK_PRODUCTS } from '@/lib/mock-data'; // MOCK_PRODUCTS is needed for item details
-import type { Budget, BudgetStatus, Product } from '@/types';
+import { MOCK_BUDGETS, MOCK_PRODUCTS, MOCK_CLIENTS } from '@/lib/mock-data';
+import type { Budget, BudgetStatus, Product, Client } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -36,16 +36,17 @@ const statusColors: Record<BudgetStatus, string> = {
 
 export function BudgetList() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [products, setProducts] = useState<Product[]>([]); // Store products for PDF details
+  const [products, setProducts] = useState<Product[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<BudgetStatus | 'all'>('all');
   const { toast } = useToast();
   const router = useRouter();
   
   useEffect(() => {
-    // Simulate API call
     setBudgets(MOCK_BUDGETS);
-    setProducts(MOCK_PRODUCTS); // Load products
+    setProducts(MOCK_PRODUCTS);
+    setClients(MOCK_CLIENTS);
   }, []);
 
   const handleEdit = (budgetId: string) => {
@@ -74,19 +75,94 @@ export function BudgetList() {
 
   const handleDownloadPdf = (budget: Budget) => {
     const doc = new jsPDF();
-    const clientName = budget.clientName || "Cliente não informado";
-    const budgetIdShort = budget.id.substring(0,8) + '...';
+    const currentClient = clients.find(c => c.id === budget.clientId);
 
-    doc.setFontSize(18);
-    doc.text(`Orçamento: ${budgetIdShort}`, 14, 22);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 10;
+    const contentWidth = pageWidth - margin * 2;
+    let currentY = 20;
+
+    // Header Section
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text("GVM", margin, currentY);
+    doc.setFont('helvetica', 'normal');
+    doc.text("IND. DE GONDOLAS E CHECKOUTS", margin + 8, currentY);
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text("PEDIDO DE VENDA", pageWidth / 2, currentY, { align: 'center' });
     
-    doc.setFontSize(11);
-    doc.setTextColor(100);
-    doc.text(`Cliente: ${clientName}`, 14, 30);
-    doc.text(`Data de Criação: ${format(new Date(budget.createdAt), 'dd/MM/yyyy', { locale: ptBR })}`, 14, 36);
-    doc.text(`Status: ${statusLabels[budget.status] || budget.status}`, 14, 42);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(format(new Date(), 'dd/MM/yyyy', { locale: ptBR }), pageWidth - margin, currentY, { align: 'right' });
 
-    const tableColumn = ["Produto", "Qtd.", "Preço Unit.", "Preço Total"];
+    currentY += 6;
+    doc.setLineWidth(0.5);
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+    currentY += 8;
+
+    // Client Information Section
+    doc.setFontSize(8);
+    const fieldHeight = 5;
+    const col1X = margin;
+    const col2X = margin + contentWidth / 2.2;
+
+    const clientDetails = [
+      { label: "CLIENTE:", value: currentClient?.name || budget.clientName || "N/A" },
+      { label: "ENDEREÇO:", value: currentClient?.address || "N/A" },
+      { label: "CNPJ:", value: currentClient?.document || "N/A" },
+    ];
+    const clientDetailsCol2 = [
+      { label: "RAZÃO SOCIAL:", value: currentClient?.companyName || (currentClient?.name.includes(' ') ? "N/A" : "Pessoa Física") },
+      { label: "IE:", value: "N/A" }, // Placeholder
+      { label: "CEP:", value: "N/A" }, // Placeholder
+      { label: "TEL:", value: currentClient?.phone || "N/A" },
+    ];
+
+    clientDetails.forEach(detail => {
+      doc.setFont('helvetica', 'bold');
+      doc.text(detail.label, col1X, currentY);
+      doc.setFont('helvetica', 'normal');
+      doc.text(detail.value, col1X + 25, currentY, {maxWidth: contentWidth / 2.5 - 25});
+      currentY += fieldHeight;
+    });
+    
+    currentY -= clientDetails.length * fieldHeight; // Reset Y for second column of client info
+
+    // Align second column of client info based on number of fields in first col
+    let col2StartY = currentY;
+    if (clientDetailsCol2.length < clientDetails.length) {
+        col2StartY += (clientDetails.length - clientDetailsCol2.length) * fieldHeight / 2;
+    }
+
+    clientDetailsCol2.forEach(detail => {
+      doc.setFont('helvetica', 'bold');
+      doc.text(detail.label, col2X, col2StartY);
+      doc.setFont('helvetica', 'normal');
+      doc.text(detail.value, col2X + 25, col2StartY, {maxWidth: contentWidth / 2 - 30 });
+      col2StartY += fieldHeight;
+    });
+
+    currentY += Math.max(clientDetails.length, clientDetailsCol2.length) * fieldHeight - fieldHeight; // Adjust Y after client block
+    currentY += 2; // Extra space
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+    currentY += 8;
+
+    // Validity and Delivery Section
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text("VALIDO POR 7 DIAS", col1X, currentY);
+    doc.text("PRAZO DE ENTREGA", col2X, currentY);
+    doc.setFont('helvetica', 'normal');
+    doc.text("30 DIAS ULTEIS", col2X + 30, currentY);
+
+    currentY += 6;
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+    currentY += 2;
+
+    // Items Table
+    const tableColumn = ["CÓDIGO", "DESCRIÇÃO", "QTDA", "VALOR UNI", "TOTAL"];
     const tableRows: (string | number)[][] = [];
 
     budget.items.forEach(item => {
@@ -97,6 +173,7 @@ export function BudgetList() {
       const totalPrice = item.totalPrice || (unitPrice * quantity);
 
       const budgetItemData = [
+        item.productId.substring(0,8).toUpperCase(),
         itemName,
         quantity,
         unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
@@ -108,19 +185,109 @@ export function BudgetList() {
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 50,
-      headStyles: { fillColor: [22, 160, 133] }, // Example green color
-      footStyles: { fillColor: [22, 160, 133], textColor: 255, fontStyle: 'bold' },
-      foot: [
-        [{ content: 'Valor Total do Orçamento:', colSpan: 3, styles: { halign: 'right' } }, 
-         { content: budget.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), styles: { halign: 'right' }}]
-      ],
+      startY: currentY,
+      theme: 'plain',
+      headStyles: {
+        fillColor: [255, 255, 0], // Yellow
+        textColor: [0, 0, 0], // Black
+        fontStyle: 'bold',
+        fontSize: 8,
+        halign: 'center'
+      },
+      bodyStyles: {
+        fontSize: 8,
+        cellPadding: {top: 1.5, right: 2, bottom: 1.5, left: 2},
+      },
+      columnStyles: {
+        0: { cellWidth: 20, halign: 'left' }, // CÓDIGO
+        1: { cellWidth: 'auto', halign: 'left' }, // DESCRIÇÃO
+        2: { cellWidth: 15, halign: 'right' }, // QTDA
+        3: { cellWidth: 25, halign: 'right' }, // VALOR UNI
+        4: { cellWidth: 25, halign: 'right' }, // TOTAL
+      },
+      margin: { left: margin, right: margin },
+      didDrawCell: (data) => {
+        if (data.section === 'head') {
+            doc.setDrawColor(0);
+            doc.setLineWidth(0.1);
+            doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height);
+        }
+      }
     });
+
+    currentY = (doc as any).lastAutoTable.finalY + 5;
+
+    // Totals Section
+    const totals = [
+      { label: "VALOR TOTAL", value: budget.totalAmount },
+      { label: "DESCONTO", value: 0 },
+      { label: "IMPOSTOS", value: 0 },
+      { label: "TRANSPORTE", value: 0 },
+      { label: "VALOR FINAL", value: budget.totalAmount, isFinal: true }
+    ];
+
+    const totalLabelX = pageWidth - margin - 60; // X position for labels
+    const totalValueX = pageWidth - margin - 30; // X position for values
+    doc.setFontSize(8);
+
+    totals.forEach(total => {
+      doc.setFont('helvetica', 'bold');
+      doc.setDrawColor(0); 
+      
+      if (total.isFinal) {
+        doc.setFillColor(50, 205, 50); // Green
+        doc.rect(totalLabelX -1 , currentY - 3.5, 60, 4.5, 'F');
+        doc.setTextColor(255, 255, 255); // White text for final value
+      } else {
+        doc.setTextColor(0, 0, 0); // Black text
+      }
+      
+      doc.rect(totalLabelX - 1, currentY - 3.5, 30, 4.5); // Label box
+      doc.text(total.label, totalLabelX, currentY, { halign: 'left' });
+      
+      doc.rect(totalValueX -1, currentY - 3.5, 30, 4.5); // Value box
+      doc.text(total.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), totalValueX + 28, currentY, { halign: 'right' });
+      currentY += 4.5;
+    });
+    doc.setTextColor(0, 0, 0); // Reset text color
+
+    currentY += 5;
+
+    // Observations Section
+    doc.setFont('helvetica', 'bold');
+    doc.text("OBSERVAÇÕES:", margin, currentY);
+    currentY += 3;
+    doc.setLineWidth(0.2);
+    doc.rect(margin, currentY, contentWidth, 20); // Observations box
+    currentY += 20 + 5; // Height of box + padding
+
+    // Footer Section
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    const companyContact = "CONTATO: (85) 9.8764-5281";
+    const companyAddress = "Rua Paolo Afonço, 3703 Maracanaú-CE / CNPJ: 36.245.901/0001-90";
+    doc.text(companyContact, margin, currentY);
+    currentY += 4;
+    doc.text(companyAddress, margin, currentY);
+    currentY += 6;
     
-    doc.save(`orcamento_${clientName.replace(/\s+/g, '_')}_${budgetIdShort}.pdf`);
+    doc.line(margin, currentY, pageWidth - margin, currentY); // Line above signatures
+    currentY += 8;
+
+    // Signature Lines
+    doc.setFontSize(8);
+    const signatureY = doc.internal.pageSize.getHeight() - 25 > currentY ? doc.internal.pageSize.getHeight() - 25 : currentY;
+
+    doc.line(margin + 10, signatureY, margin + 70, signatureY);
+    doc.text("Cliente", margin + 30, signatureY + 4, { align: 'center'});
+
+    doc.line(pageWidth - margin - 70, signatureY, pageWidth - margin - 10, signatureY);
+    doc.text("Vendedor", pageWidth - margin - 40, signatureY + 4, {align: 'center'});
+    
+    doc.save(`pedido_venda_${budget.clientName.replace(/\s+/g, '_')}_${budget.id.substring(0,6)}.pdf`);
     toast({
       title: 'PDF Gerado',
-      description: `O PDF para o orçamento ${budgetIdShort} foi gerado com sucesso.`,
+      description: `O PDF para o orçamento ${budget.id.substring(0,8)} foi gerado com sucesso.`,
     });
   };
   
@@ -216,4 +383,3 @@ export function BudgetList() {
     </div>
   );
 }
-
