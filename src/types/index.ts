@@ -45,9 +45,12 @@ export interface Budget {
   clientId: string;
   items: BudgetItem[];
   materialCostInternal: number;
-  totalAmount: number;
+  totalAmount: number; // Este será o valor final após descontos, fretes e impostos
   status: BudgetStatus;
   observations?: string;
+  discount?: number; // Novo campo
+  shippingCost?: number; // Novo campo
+  taxAmount?: number; // Novo campo
   createdAt: string;
   updatedAt: string;
   // userId?: string; 

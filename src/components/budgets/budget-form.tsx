@@ -29,12 +29,22 @@ const formSchema = z.object({
   items: z.array(budgetItemSchema).min(1, "Adicione pelo menos um item ao orçamento."),
   status: z.enum(['draft', 'sent', 'approved', 'rejected'] as [BudgetStatus, ...BudgetStatus[]], { required_error: 'Selecione um status.' }),
   observations: z.string().optional(),
+  discount: z.coerce.number().min(0, "Desconto não pode ser negativo.").optional().default(0),
+  shippingCost: z.coerce.number().min(0, "Frete não pode ser negativo.").optional().default(0),
+  taxAmount: z.coerce.number().min(0, "Impostos não podem ser negativos.").optional().default(0),
 });
 
 interface BudgetFormProps {
   budget?: Budget | null; 
   onSubmitSuccess?: () => void;
 }
+
+const statusTranslationsForm: Record<BudgetStatus, string> = {
+  draft: 'Rascunho',
+  sent: 'Enviado',
+  approved: 'Aprovado',
+  rejected: 'Rejeitado',
+};
 
 export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
   const { toast } = useToast();
@@ -91,11 +101,17 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
       })),
       status: budget.status,
       observations: budget.observations || '',
+      discount: budget.discount || 0,
+      shippingCost: budget.shippingCost || 0,
+      taxAmount: budget.taxAmount || 0,
     } : {
       clientId: '',
       items: [],
       status: 'draft',
       observations: '',
+      discount: 0,
+      shippingCost: 0,
+      taxAmount: 0,
     },
   });
   
@@ -111,9 +127,12 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
             })),
             status: budget.status,
             observations: budget.observations || '',
+            discount: budget.discount || 0,
+            shippingCost: budget.shippingCost || 0,
+            taxAmount: budget.taxAmount || 0,
         });
     } else {
-        form.reset({ clientId: '', items: [], status: 'draft', observations: '' });
+        form.reset({ clientId: '', items: [], status: 'draft', observations: '', discount: 0, shippingCost: 0, taxAmount: 0 });
     }
   }, [budget, form]);
 
@@ -123,29 +142,40 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
     name: "items"
   });
 
-  const selectedFormItems = form.watch('items');
+  const watchedItems = form.watch('items');
+  const watchedDiscount = form.watch('discount');
+  const watchedShippingCost = form.watch('shippingCost');
+  const watchedTaxAmount = form.watch('taxAmount');
 
-  const calculateTotals = useCallback(() => {
-    const itemsTotal = selectedFormItems.reduce((sum, item) => {
-      const product = products.find(p => p.id === item.productId);
-      return sum + (product ? product.salePrice * item.quantity : 0);
-    }, 0);
-    const materialCostInternal = selectedFormItems.reduce((sum, item) => {
-      const product = products.find(p => p.id === item.productId);
-      return sum + (product ? product.costPrice * item.quantity : 0);
-    }, 0);
-    return { itemsTotal, materialCostInternal };
-  }, [selectedFormItems, products]);
-
-
+  const [subtotalItems, setSubtotalItems] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
   const [materialCost, setMaterialCost] = useState(0);
 
+  const calculateTotals = useCallback(() => {
+    const currentSubtotalItems = watchedItems.reduce((sum, item) => {
+      const product = products.find(p => p.id === item.productId);
+      return sum + (product ? product.salePrice * item.quantity : 0);
+    }, 0);
+    setSubtotalItems(currentSubtotalItems);
+
+    const currentMaterialCostInternal = watchedItems.reduce((sum, item) => {
+      const product = products.find(p => p.id === item.productId);
+      return sum + (product ? product.costPrice * item.quantity : 0);
+    }, 0);
+    setMaterialCost(currentMaterialCostInternal);
+
+    const discountValue = watchedDiscount || 0;
+    const shippingCostValue = watchedShippingCost || 0;
+    const taxAmountValue = watchedTaxAmount || 0;
+    
+    const finalTotal = currentSubtotalItems - discountValue + shippingCostValue + taxAmountValue;
+    setTotalAmount(finalTotal);
+
+  }, [watchedItems, products, watchedDiscount, watchedShippingCost, watchedTaxAmount]);
+
   useEffect(() => {
-    const { itemsTotal, materialCostInternal } = calculateTotals();
-    setTotalAmount(itemsTotal); 
-    setMaterialCost(materialCostInternal);
-  }, [selectedFormItems, products, calculateTotals]);
+    calculateTotals();
+  }, [watchedItems, products, watchedDiscount, watchedShippingCost, watchedTaxAmount, calculateTotals]);
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -168,6 +198,15 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
         };
     });
 
+    // Recalculate totalAmount just before submit to ensure accuracy with latest form values
+    const finalSubtotalItems = budgetItemsData.reduce((sum, item) => sum + item.totalPrice, 0);
+    const finalTotalAmount = finalSubtotalItems - (values.discount || 0) + (values.shippingCost || 0) + (values.taxAmount || 0);
+    const finalMaterialCostInternal = values.items.reduce((sum, item) => {
+        const product = products.find(p => p.id === item.productId);
+        return sum + (product ? product.costPrice * item.quantity : 0);
+    }, 0);
+
+
     try {
         if (budget && budget.id) {
             const budgetDataForUpdate = {
@@ -176,10 +215,12 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                 items: budgetItemsData,
                 status: values.status,
                 observations: values.observations || '',
-                totalAmount,
-                materialCostInternal: materialCost,
+                discount: values.discount || 0,
+                shippingCost: values.shippingCost || 0,
+                taxAmount: values.taxAmount || 0,
+                totalAmount: finalTotalAmount, // Use o total final calculado
+                materialCostInternal: finalMaterialCostInternal,
                 updatedAt: new Date().toISOString(),
-                // createdAt will remain from the original document
             };
             await updateDoc(doc(db, 'budgets', budget.id), budgetDataForUpdate);
             toast({
@@ -193,8 +234,11 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                 items: budgetItemsData,
                 status: values.status,
                 observations: values.observations || '',
-                totalAmount,
-                materialCostInternal: materialCost,
+                discount: values.discount || 0,
+                shippingCost: values.shippingCost || 0,
+                taxAmount: values.taxAmount || 0,
+                totalAmount: finalTotalAmount, // Use o total final calculado
+                materialCostInternal: finalMaterialCostInternal,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
             };
@@ -203,7 +247,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                 title: 'Orçamento Criado!',
                 description: `O orçamento para ${selectedClient.name} foi salvo com sucesso.`,
             });
-            form.reset({ clientId: '', items: [], status: 'draft', observations: '' });
+            form.reset({ clientId: '', items: [], status: 'draft', observations: '', discount: 0, shippingCost: 0, taxAmount: 0 });
         }
       if (onSubmitSuccess) {
         onSubmitSuccess();
@@ -241,7 +285,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                     <FormLabel>Cliente*</FormLabel>
                     <Select 
                         onValueChange={field.onChange} 
-                        value={field.value} // Ensure value is controlled
+                        value={field.value} 
                         disabled={isFetchingClients || isLoading}
                     >
                       <FormControl>
@@ -273,8 +317,8 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {(['draft', 'sent', 'approved', 'rejected'] as BudgetStatus[]).map(s => (
-                          <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
+                        {(Object.keys(statusTranslationsForm) as BudgetStatus[]).map(s => (
+                          <SelectItem key={s} value={s}>{statusTranslationsForm[s]}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -310,7 +354,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                               form.setValue(`items.${index}.unitPrice`, productDetails?.salePrice || 0);
                               form.setValue(`items.${index}.productName`, productDetails?.name || '');
                             }} 
-                            value={formField.value} // Ensure value is controlled
+                            value={formField.value}
                             disabled={isFetchingProducts || isLoading}
                           >
                             <FormControl>
@@ -353,9 +397,57 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                 {form.formState.errors.items && typeof form.formState.errors.items === 'object' && !Array.isArray(form.formState.errors.items) && (
                     <FormMessage>{form.formState.errors.items.message}</FormMessage>
                 )}
+                 {fields.length > 0 && (
+                    <div className="text-right font-medium text-md mt-4">
+                        Subtotal dos Itens: {subtotalItems.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </div>
+                 )}
               </CardContent>
             </Card>
             
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <FormField
+                    control={form.control}
+                    name="discount"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Desconto (R$)</FormLabel>
+                        <FormControl>
+                        <Input type="number" step="0.01" placeholder="0.00" {...field} disabled={isLoading} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="shippingCost"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Frete (R$)</FormLabel>
+                        <FormControl>
+                        <Input type="number" step="0.01" placeholder="0.00" {...field} disabled={isLoading} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="taxAmount"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Impostos (R$)</FormLabel>
+                        <FormControl>
+                        <Input type="number" step="0.01" placeholder="0.00" {...field} disabled={isLoading} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+            </div>
+
+
             <div className="grid grid-cols-1 md:grid-cols-1 gap-6"> 
                <div>
                   <FormLabel>Custo dos Materiais (Interno)</FormLabel>

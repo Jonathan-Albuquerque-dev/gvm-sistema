@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Loader2, AlertTriangle, FileText, ShoppingCart, Edit } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertTriangle, FileText, ShoppingCart, Edit, MinusCircle, PlusCircle } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { Budget, BudgetStatus, BudgetItem } from '@/types';
@@ -65,14 +65,20 @@ export default function BudgetDetailPage() {
     }
   }, [budgetId]);
 
-  const DetailItem = ({ label, value, currency = false, className }: { label: string; value?: string | number | null, currency?: boolean, className?: string }) => (
-    value !== undefined && value !== null ? (
+  const DetailItem = ({ label, value, currency = false, className, isNegative = false, isPositive = false }: { label: string; value?: string | number | null, currency?: boolean, className?: string, isNegative?: boolean, isPositive?: boolean }) => (
+    value !== undefined && value !== null && (typeof value !== 'number' || value !== 0 || label === "Desconto (R$)") ? ( // Always show discount even if 0
       <div className={`py-2 ${className}`}>
         <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        <p className="text-md">{currency && typeof value === 'number' ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : value}</p>
+        <p className={`text-md ${isNegative ? 'text-red-600 dark:text-red-400' : ''} ${isPositive ? 'text-green-600 dark:text-green-400' : ''}`}>
+          {currency && typeof value === 'number' ? 
+            (isNegative && value > 0 ? -value : value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) 
+            : value}
+        </p>
       </div>
     ) : null
   );
+
+  const subtotalItems = budget?.items.reduce((sum, item) => sum + item.totalPrice, 0) || 0;
 
   return (
     <>
@@ -127,16 +133,25 @@ export default function BudgetDetailPage() {
                     <Badge className={`${statusColors[budget.status]} text-sm px-3 py-1`}>{statusTranslations[budget.status]}</Badge>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2">
-                    <DetailItem label="Valor Total do Orçamento" value={budget.totalAmount} currency className="md:col-span-1 text-lg font-semibold" />
-                    <DetailItem label="Custo Interno de Materiais" value={budget.materialCostInternal} currency className="md:col-span-1" />
+                    <DetailItem label="Data de Criação" value={new Date(budget.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} />
+                    {budget.updatedAt && <DetailItem label="Última Atualização" value={new Date(budget.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} />}
+                    <div className="md:col-span-3 mt-4 pt-4 border-t">
+                        <p className="text-lg font-semibold">Resumo Financeiro</p>
+                    </div>
+                    <DetailItem label="Subtotal dos Itens" value={subtotalItems} currency className="md:col-span-1" />
+                    <DetailItem label="Desconto (R$)" value={budget.discount} currency className="md:col-span-1" isNegative={budget.discount !== undefined && budget.discount > 0} />
+                    <DetailItem label="Frete (R$)" value={budget.shippingCost} currency className="md:col-span-1" isPositive={budget.shippingCost !== undefined && budget.shippingCost > 0}/>
+                    <DetailItem label="Impostos (R$)" value={budget.taxAmount} currency className="md:col-span-1" isPositive={budget.taxAmount !== undefined && budget.taxAmount > 0}/>
+                    
+                    <DetailItem label="Valor Total do Orçamento" value={budget.totalAmount} currency className="md:col-span-3 text-lg font-bold text-primary pt-2" />
+                    
+                    <DetailItem label="Custo Interno de Materiais" value={budget.materialCostInternal} currency className="md:col-span-1 pt-2 border-t mt-2" />
                      <DetailItem 
                         label="Margem Bruta Estimada" 
                         value={(budget.totalAmount - budget.materialCostInternal)} 
                         currency 
-                        className="md:col-span-1" 
+                        className="md:col-span-2 pt-2 border-t mt-2 font-semibold" 
                     />
-                     <DetailItem label="Data de Criação" value={new Date(budget.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} />
-                    {budget.updatedAt && <DetailItem label="Última Atualização" value={new Date(budget.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} />}
                 </CardContent>
             </Card>
 
