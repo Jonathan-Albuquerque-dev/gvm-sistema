@@ -145,7 +145,7 @@ export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
                 control={form.control}
                 name="admissionDate"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col">
+                  <FormItem> {/* Removida a classe "flex flex-col" daqui */}
                     <FormLabel>Data de Admissão*</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
