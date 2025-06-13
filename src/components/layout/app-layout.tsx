@@ -1,4 +1,5 @@
-'use client'; // Adicionado para permitir o uso de usePathname
+
+'use client'; 
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
@@ -11,11 +12,17 @@ import {
   SidebarMenuButton,
   SidebarTrigger,
   SidebarInset,
+  SidebarFooter, 
+  SidebarSeparator
 } from '@/components/ui/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, FileText, Package, Users, BarChartBig, Calculator, Building } from 'lucide-react';
-import { usePathname } from 'next/navigation'; 
+import { LayoutDashboard, FileText, Package, Users, BarChartBig, Calculator, Building, LogOut } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation'; 
+import { useAuth } from '@/hooks/useAuth';
+import { auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
+import { useToast } from '@/hooks/use-toast';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -26,13 +33,27 @@ const navItems = [
   { href: '/budgets', label: 'Orçamentos', icon: FileText },
   { href: '/products', label: 'Produtos', icon: Package },
   { href: '/clients', label: 'Clientes', icon: Users },
-  { href: '/employees', label: 'Funcionários', icon: Users },
+  { href: '/employees', label: 'Funcionários', icon: Users }, // Make sure this matches the folder name
   { href: '/reports', label: 'Relatórios', icon: BarChartBig },
   { href: '/cost-control', label: 'Controle de Custos', icon: Calculator },
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname(); 
+  const router = useRouter();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      toast({ title: 'Logout realizado com sucesso!' });
+      router.push('/login');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      toast({ title: 'Erro ao fazer logout', description: 'Tente novamente.', variant: 'destructive' });
+    }
+  };
 
   return (
     <div className="flex min-h-screen">
@@ -71,6 +92,20 @@ export function AppLayout({ children }: AppLayoutProps) {
             </SidebarMenu>
           </SidebarContent>
         </ScrollArea>
+        <SidebarSeparator />
+        <SidebarFooter className="p-2">
+           {user && (
+             <div className="px-2 py-2 group-data-[collapsible=icon]:hidden">
+                <p className="text-xs font-medium text-sidebar-foreground truncate" title={user.email || ''}>
+                  {user.email}
+                </p>
+             </div>
+           )}
+          <SidebarMenuButton variant="default" className="w-full justify-start" onClick={handleLogout}>
+            <LogOut className="h-5 w-5 mr-3" />
+            <span className="group-data-[collapsible=icon]:hidden">Sair</span>
+          </SidebarMenuButton>
+        </SidebarFooter>
       </Sidebar>
       <SidebarInset className="flex-1">
         <main className="p-4 md:p-6 lg:p-8 h-full">

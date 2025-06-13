@@ -1,36 +1,79 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Edit3, Trash2, MoreVertical, Eye } from 'lucide-react';
-import { MOCK_CLIENTS } from '@/lib/mock-data';
+import { Edit3, Trash2, MoreVertical, Eye, Loader2 } from 'lucide-react';
 import type { Client } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { useRouter } from 'next/navigation'; // For navigation, e.g. to edit page
+import { useRouter } from 'next/navigation';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, doc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+// import { useAuth } from '@/hooks/useAuth'; // If you filter by userId
 
 export function ClientList() {
   const [clients, setClients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const { toast } = useToast();
+  // const { user } = useAuth(); // For userId filtering
 
   useEffect(() => {
-    // Simulate API call
-    setClients(MOCK_CLIENTS);
-  }, []);
+    // if (!user) { // Optional: only fetch if user is logged in
+    //   setIsLoading(false);
+    //   setClients([]);
+    //   return;
+    // }
+
+    setIsLoading(true);
+    // const q = query(collection(db, 'clients'), where('userId', '==', user.uid)); // Example for user-specific data
+    const q = query(collection(db, 'clients'), orderBy('createdAt', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const clientsData: Client[] = [];
+      querySnapshot.forEach((doc) => {
+        clientsData.push({ id: doc.id, ...doc.data() } as Client);
+      });
+      setClients(clientsData);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Erro ao buscar clientes:", error);
+      toast({ title: "Erro ao buscar clientes", description: "Não foi possível carregar a lista de clientes.", variant: "destructive" });
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe(); // Cleanup subscription on component unmount
+  }, [toast]); // Add user to dependency array if filtering by user.uid
 
   const handleEdit = (clientId: string) => {
-    // router.push(`/clients/${clientId}/edit`);
-    console.log(`Edit client ${clientId}`);
-    // For now, actual edit page is not implemented, so we can show a toast or log
+    toast({ title: 'Funcionalidade em Desenvolvimento', description: `A edição do cliente ${clientId.substring(0,8)} será implementada.`});
+    // router.push(`/clients/edit/${clientId}`); // Future implementation
   };
 
-  const handleDelete = (clientId: string) => {
-    // Simulate API call for deletion
-    setClients(prevClients => prevClients.filter(client => client.id !== clientId));
-    console.log(`Delete client ${clientId}`);
+  const handleDelete = async (clientId: string, clientName: string) => {
+    if (!window.confirm(`Tem certeza que deseja excluir o cliente "${clientName}"? Esta ação não pode ser desfeita.`)) {
+        return;
+    }
+    try {
+      await deleteDoc(doc(db, 'clients', clientId));
+      toast({
+        title: 'Cliente Excluído!',
+        description: `O cliente "${clientName}" foi excluído com sucesso do Firebase.`,
+      });
+      // No need to manually update state if using onSnapshot, it will update automatically
+    } catch (error) {
+      console.error("Erro ao excluir cliente:", error);
+      toast({
+        title: 'Erro ao Excluir',
+        description: `Não foi possível excluir o cliente "${clientName}". Tente novamente.`,
+        variant: 'destructive',
+      });
+    }
   };
   
   const filteredClients = clients.filter(client => 
@@ -39,6 +82,15 @@ export function ClientList() {
     client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.document.includes(searchTerm)
   );
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Carregando clientes...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -72,7 +124,7 @@ export function ClientList() {
                   <TableCell className="hidden md:table-cell">{client.email}</TableCell>
                   <TableCell className="hidden lg:table-cell">{client.phone}</TableCell>
                   <TableCell className="hidden lg:table-cell">
-                     <Badge variant="secondary">{client.budgetIds.length}</Badge>
+                     <Badge variant="secondary">{client.budgetIds?.length || 0}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -82,13 +134,13 @@ export function ClientList() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => console.log('View client details', client.id)}>
+                        <DropdownMenuItem onClick={() => toast({title: 'Visualização em Desenvolvimento'})}>
                           <Eye className="mr-2 h-4 w-4" /> Ver Detalhes
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEdit(client.id)}>
                           <Edit3 className="mr-2 h-4 w-4" /> Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(client.id)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
+                        <DropdownMenuItem onClick={() => handleDelete(client.id, client.name)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
                           <Trash2 className="mr-2 h-4 w-4" /> Excluir
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -99,12 +151,12 @@ export function ClientList() {
             ) : (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center">
-                  Nenhum cliente encontrado.
+                  Nenhum cliente encontrado. {clients.length === 0 && !searchTerm ? "Cadastre o primeiro cliente." : ""}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
-           {filteredClients.length === 0 && searchTerm && (
+           {filteredClients.length === 0 && (clients.length > 0 || searchTerm) && (
              <TableCaption>Nenhum cliente encontrado para "{searchTerm}".</TableCaption>
            )}
         </Table>

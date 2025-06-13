@@ -11,6 +11,9 @@ import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { auth } from '@/lib/firebase'; // Import Firebase auth
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { useState } from 'react';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Por favor, insira um email válido.' }),
@@ -20,6 +23,7 @@ const formSchema = z.object({
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -29,21 +33,28 @@ export default function LoginPage() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Lógica de autenticação aqui (placeholder)
-    console.log('Login attempt:', values);
-    if (values.email === 'teste@example.com' && values.password === 'password') {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
         title: 'Login bem-sucedido!',
         description: 'Redirecionando para o dashboard...',
       });
       router.push('/dashboard');
-    } else {
+    } catch (error: any) {
+      console.error('Erro de Login:', error);
+      let errorMessage = 'Ocorreu um erro ao tentar fazer login.';
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        errorMessage = 'Email ou senha inválidos.';
+      }
       toast({
         title: 'Erro de Login',
-        description: 'Email ou senha inválidos.',
+        description: errorMessage,
         variant: 'destructive',
       });
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -67,7 +78,7 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="seuemail@exemplo.com" {...field} />
+                      <Input type="email" placeholder="seuemail@exemplo.com" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -80,26 +91,18 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Senha</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
+                      <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full">
-                <LogIn className="mr-2 h-4 w-4" /> Entrar
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Entrando...' : <><LogIn className="mr-2 h-4 w-4" /> Entrar</>}
               </Button>
             </form>
           </Form>
         </CardContent>
-        {/* <CardFooter className="flex flex-col items-center text-sm">
-          <p className="text-muted-foreground">
-            Não tem uma conta?{' '}
-            <Link href="/signup" className="font-medium text-primary hover:underline">
-              Cadastre-se
-            </Link>
-          </p>
-        </CardFooter> */}
       </Card>
     </div>
   );
