@@ -7,12 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DollarSign, Calculator, TrendingUp, Percent, Landmark, ShoppingCart, PlusCircle, HandCoins, ReceiptText, Loader2 } from 'lucide-react';
-// MOCK_VARIABLE_COSTS e MOCK_FIXED_COSTS serão removidos como import direto
 import type { Budget, VariableCost, FixedCost, CostCategory } from '@/types';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { FixedCostForm } from '@/components/costs/fixed-cost-form';
+import { VariableCostForm } from '@/components/costs/variable-cost-form';
 
 const categoryTranslations: Record<CostCategory, string> = {
   food: 'Alimentação',
@@ -35,6 +37,9 @@ export default function CostControlPage() {
   const [variableCosts, setVariableCosts] = useState<VariableCost[]>([]);
   const [isLoadingVariableCosts, setIsLoadingVariableCosts] = useState(true);
   const { toast } = useToast();
+
+  const [isFixedCostDialogOpen, setIsFixedCostDialogOpen] = useState(false);
+  const [isVariableCostDialogOpen, setIsVariableCostDialogOpen] = useState(false);
 
   const [receitaTotal, setReceitaTotal] = useState(0);
   const [custoMaterialTotal, setCustoMaterialTotal] = useState(0);
@@ -216,9 +221,22 @@ export default function CostControlPage() {
                 <Landmark className="h-5 w-5 text-primary" />
                 <CardTitle>Gastos Fixos Mensais</CardTitle>
             </div>
-            <Button variant="outline" size="sm" onClick={() => console.log("Adicionar Gasto Fixo (Placeholder)")}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Adicionar
-            </Button>
+            <Dialog open={isFixedCostDialogOpen} onOpenChange={setIsFixedCostDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Adicionar
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Adicionar Gasto Fixo</DialogTitle>
+                  <DialogDescription>
+                    Preencha os detalhes do novo gasto fixo mensal.
+                  </DialogDescription>
+                </DialogHeader>
+                <FixedCostForm onSubmitSuccess={() => setIsFixedCostDialogOpen(false)} />
+              </DialogContent>
+            </Dialog>
           </CardHeader>
           <CardContent>
             {isLoadingFixedCosts ? (
@@ -255,9 +273,22 @@ export default function CostControlPage() {
                 <HandCoins className="h-5 w-5 text-primary" />
                 <CardTitle>Gastos Variáveis Lançados</CardTitle>
             </div>
-            <Button variant="outline" size="sm" onClick={() => console.log("Adicionar Gasto Variável (Placeholder)")}>
-                 <PlusCircle className="mr-2 h-4 w-4" /> Adicionar
-            </Button>
+             <Dialog open={isVariableCostDialogOpen} onOpenChange={setIsVariableCostDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Adicionar
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[480px]"> {/* Adjusted width slightly */}
+                <DialogHeader>
+                  <DialogTitle>Adicionar Gasto Variável</DialogTitle>
+                  <DialogDescription>
+                    Preencha os detalhes do novo gasto variável.
+                  </DialogDescription>
+                </DialogHeader>
+                <VariableCostForm onSubmitSuccess={() => setIsVariableCostDialogOpen(false)} />
+              </DialogContent>
+            </Dialog>
           </CardHeader>
           <CardContent>
             {isLoadingVariableCosts ? (
@@ -344,5 +375,3 @@ export default function CostControlPage() {
     </>
   );
 }
-
-    
