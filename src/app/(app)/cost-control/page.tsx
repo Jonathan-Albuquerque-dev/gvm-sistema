@@ -6,10 +6,13 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Calculator, TrendingUp, Percent, Landmark, ShoppingCart, PlusCircle, HandCoins, ReceiptText } from 'lucide-react';
-import { MOCK_BUDGETS, MOCK_VARIABLE_COSTS, MOCK_FIXED_COSTS } from '@/lib/mock-data';
+import { DollarSign, Calculator, TrendingUp, Percent, Landmark, ShoppingCart, PlusCircle, HandCoins, ReceiptText, Loader2 } from 'lucide-react';
+import { MOCK_VARIABLE_COSTS, MOCK_FIXED_COSTS } from '@/lib/mock-data';
 import type { Budget, VariableCost, FixedCost, CostCategory } from '@/types';
 import { cn } from '@/lib/utils';
+import { db } from '@/lib/firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 const categoryTranslations: Record<CostCategory, string> = {
   food: 'Alimentação',
@@ -25,6 +28,10 @@ const categoryTranslations: Record<CostCategory, string> = {
 
 
 export default function CostControlPage() {
+  const [approvedBudgets, setApprovedBudgets] = useState<Budget[]>([]);
+  const [isLoadingBudgets, setIsLoadingBudgets] = useState(true);
+  const { toast } = useToast();
+
   const [receitaTotal, setReceitaTotal] = useState(0);
   const [custoMaterialTotal, setCustoMaterialTotal] = useState(0);
   const [custosVariaveisTotal, setCustosVariaveisTotal] = useState(0);
@@ -38,7 +45,30 @@ export default function CostControlPage() {
   const [fixedCosts, setFixedCosts] = useState<FixedCost[]>([]);
 
   useEffect(() => {
-    const approvedBudgets = MOCK_BUDGETS.filter(b => b.status === 'approved');
+    setIsLoadingBudgets(true);
+    const budgetsQuery = query(collection(db, 'budgets'), where('status', '==', 'approved'));
+
+    const unsubscribe = onSnapshot(budgetsQuery, (querySnapshot) => {
+      const fetchedBudgets: Budget[] = [];
+      querySnapshot.forEach((doc) => {
+        fetchedBudgets.push({ id: doc.id, ...doc.data() } as Budget);
+      });
+      setApprovedBudgets(fetchedBudgets);
+      setIsLoadingBudgets(false);
+    }, (error) => {
+      console.error("Erro ao buscar orçamentos aprovados:", error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível buscar os orçamentos aprovados.",
+        variant: "destructive",
+      });
+      setIsLoadingBudgets(false);
+    });
+
+    return () => unsubscribe();
+  }, [toast]);
+
+  useEffect(() => {
     const currentApprovedBudgetsCount = approvedBudgets.length;
     setApprovedBudgetsCount(currentApprovedBudgetsCount);
 
@@ -65,7 +95,7 @@ export default function CostControlPage() {
     const currentMargemMedia = currentReceitaTotal > 0 ? (currentLucroTotal / currentReceitaTotal) * 100 : 0;
     setMargemMedia(currentMargemMedia);
 
-  }, []);
+  }, [approvedBudgets]);
 
   const formatCurrency = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const formatPercent = (value: number) => `${value.toFixed(1)}%`;
@@ -81,6 +111,17 @@ export default function CostControlPage() {
   const percentCustosFixos = custoTotal > 0 ? (custosFixosTotal / custoTotal) * 100 : 0;
   const custoMedioPorProjeto = approvedBudgetsCount > 0 ? custoTotal / approvedBudgetsCount : 0;
 
+  if (isLoadingBudgets) {
+    return (
+      <>
+        <PageHeader title="Controle de Custos" description="Análise de margem, rentabilidade e despesas." />
+        <div className="flex flex-col items-center justify-center h-64 p-8 bg-card rounded-lg shadow">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground">Carregando dados de custos...</p>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

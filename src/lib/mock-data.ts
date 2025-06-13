@@ -18,8 +18,9 @@ export const MOCK_PRODUCTS: Product[] = [
   { id: 'prod-4', name: 'Luminária LED Sobrepor 18W', description: 'Luminária LED quadrada de sobrepor 18W Bivolt', salePrice: 35.50, costPrice: 18.00, category: 'electrical', createdAt: oneMonthAgo.toISOString() },
 ];
 
-// MOCK_BUDGETS is now removed as BudgetList and BudgetForm use Firebase.
-// export const MOCK_BUDGETS: Budget[] = [ ... ];
+// MOCK_CLIENTS is removed as Reports page now fetches from Firebase.
+// export const MOCK_CLIENTS: Client[] = [ ... ];
+
 
 export const MOCK_SALES_DATA: SalesData[] = [
   { month: 'Jan', totalSales: 1200 },
@@ -27,7 +28,6 @@ export const MOCK_SALES_DATA: SalesData[] = [
   { month: 'Mar', totalSales: 1500 },
   { month: 'Abr', totalSales: 2800 },
   { month: 'Mai', totalSales: 1300 },
-  // { month: 'Jun', totalSales: MOCK_BUDGETS.filter(b => b.status === 'approved').reduce((sum, b) => sum + b.totalAmount, 0) }, // This would need to fetch live data now
   { month: 'Jun', totalSales: 0 }, // Placeholder until live data is integrated here
 ];
 
