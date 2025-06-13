@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Loader2, AlertTriangle, FileText, ShoppingCart, Edit, Percent } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertTriangle, FileText, ShoppingCart, Edit, Percent, Clock } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { Budget, BudgetStatus, BudgetItem, DiscountType } from '@/types';
@@ -149,6 +149,9 @@ export default function BudgetDetailPage() {
                 <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2">
                     <DetailItem label="Data de Criação" value={new Date(budget.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} />
                     {budget.updatedAt && <DetailItem label="Última Atualização" value={new Date(budget.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} />}
+                    {budget.deliveryTime && <DetailItem label="Prazo de Entrega" value={budget.deliveryTime} className="flex items-center gap-1">
+                        <Clock className="h-4 w-4 text-muted-foreground"/>
+                       </DetailItem>}
                     
                     <div className="md:col-span-3 mt-4 pt-4 border-t">
                         <p className="text-lg font-semibold">Resumo Financeiro</p>

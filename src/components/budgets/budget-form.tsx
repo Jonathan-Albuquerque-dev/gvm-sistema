@@ -29,6 +29,7 @@ const formSchema = z.object({
   clientId: z.string().min(1, { message: 'Selecione um cliente.' }),
   items: z.array(budgetItemSchema).min(1, "Adicione pelo menos um item ao orçamento."),
   status: z.enum(['draft', 'sent', 'approved', 'rejected'] as [BudgetStatus, ...BudgetStatus[]], { required_error: 'Selecione um status.' }),
+  deliveryTime: z.string().optional(),
   observations: z.string().optional(),
   discountType: z.enum(['fixed', 'percentage'] as [DiscountType, ...DiscountType[]]).optional().default('fixed'),
   discountInput: z.coerce.number().min(0, "Valor do desconto não pode ser negativo.").optional().default(0),
@@ -102,6 +103,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
         productName: item.productName 
       })),
       status: budget.status,
+      deliveryTime: budget.deliveryTime || '',
       observations: budget.observations || '',
       discountType: budget.discountType || 'fixed',
       discountInput: budget.discountInput || 0,
@@ -111,6 +113,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
       clientId: '',
       items: [],
       status: 'draft',
+      deliveryTime: '',
       observations: '',
       discountType: 'fixed',
       discountInput: 0,
@@ -130,6 +133,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                 productName: item.productName
             })),
             status: budget.status,
+            deliveryTime: budget.deliveryTime || '',
             observations: budget.observations || '',
             discountType: budget.discountType || 'fixed',
             discountInput: budget.discountInput || 0,
@@ -137,7 +141,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
             taxAmount: budget.taxAmount || 0,
         });
     } else {
-        form.reset({ clientId: '', items: [], status: 'draft', observations: '', discountType: 'fixed', discountInput: 0, shippingCost: 0, taxAmount: 0 });
+        form.reset({ clientId: '', items: [], status: 'draft', deliveryTime: '', observations: '', discountType: 'fixed', discountInput: 0, shippingCost: 0, taxAmount: 0 });
     }
   }, [budget, form]);
 
@@ -196,7 +200,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
 
   useEffect(() => {
     calculateTotals();
-  }, [calculateTotals]); // Only calculateTotals is needed as it encapsulates all other dependencies
+  }, [calculateTotals]); 
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -243,11 +247,12 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
 
 
     try {
-        const budgetDataPayload = {
+        const budgetDataPayload: Partial<Budget> = { // Usando Partial<Budget> para flexibilidade
             clientId: values.clientId,
             clientName: selectedClient.name,
             items: budgetItemsData,
             status: values.status,
+            deliveryTime: values.deliveryTime || '',
             observations: values.observations || '',
             appliedDiscountAmount: finalAppliedDiscountAmount,
             discountType: values.discountType,
@@ -266,15 +271,13 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                 description: `O orçamento para ${selectedClient.name} foi atualizado com sucesso.`,
             });
         } else {
-            await addDoc(collection(db, 'budgets'), {
-                ...budgetDataPayload,
-                createdAt: new Date().toISOString(),
-            });
+            budgetDataPayload.createdAt = new Date().toISOString();
+            await addDoc(collection(db, 'budgets'), budgetDataPayload as Budget); // Cast para Budget aqui
             toast({
                 title: 'Orçamento Criado!',
                 description: `O orçamento para ${selectedClient.name} foi salvo com sucesso.`,
             });
-            form.reset({ clientId: '', items: [], status: 'draft', observations: '', discountType: 'fixed', discountInput: 0, shippingCost: 0, taxAmount: 0 });
+            form.reset({ clientId: '', items: [], status: 'draft', deliveryTime: '', observations: '', discountType: 'fixed', discountInput: 0, shippingCost: 0, taxAmount: 0 });
         }
       if (onSubmitSuccess) {
         onSubmitSuccess();
@@ -354,6 +357,21 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                 )}
               />
             </div>
+            
+            <FormField
+                control={form.control}
+                name="deliveryTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Prazo de Entrega</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: 30 dias úteis" {...field} value={field.value ?? ''} disabled={isLoading} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
 
             <Card>
               <CardHeader>
@@ -577,5 +595,3 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
     </Card>
   );
 }
-
-

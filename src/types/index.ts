@@ -49,6 +49,7 @@ export interface Budget {
   totalAmount: number; // Este será o valor final após descontos, fretes e impostos
   status: BudgetStatus;
   observations?: string;
+  deliveryTime?: string; // Novo campo adicionado
   
   appliedDiscountAmount?: number; // Valor monetário do desconto efetivamente aplicado
   discountType?: DiscountType;    // Tipo de desconto ('fixed' ou 'percentage')

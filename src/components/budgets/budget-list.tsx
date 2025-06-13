@@ -48,8 +48,8 @@ export function BudgetList() {
     
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const budgetsData: Budget[] = [];
-      querySnapshot.forEach((doc) => {
-        budgetsData.push({ id: doc.id, ...doc.data() } as Budget);
+      querySnapshot.forEach((docSnap) => { // Renomeado para evitar conflito com 'doc' do firestore
+        budgetsData.push({ id: docSnap.id, ...docSnap.data() } as Budget);
       });
       setBudgets(budgetsData);
       setIsLoading(false);
@@ -94,7 +94,7 @@ export function BudgetList() {
     let clientData: Client | null = null;
     if (budget.clientId) {
         try {
-            const clientDocRef = doc(db, 'clients', budget.clientId);
+            const clientDocRef = doc(db, 'clients', budget.clientId); // 'doc' do firestore
             const clientDocSnap = await getDoc(clientDocRef);
             if (clientDocSnap.exists()) {
                 clientData = clientDocSnap.data() as Client;
@@ -107,32 +107,28 @@ export function BudgetList() {
         }
     }
 
-    const pdfDoc = new jsPDF();
+    const pdfDoc = new jsPDF(); // 'pdfDoc' é a instância do jsPDF
     const pageWidth = pdfDoc.internal.pageSize.getWidth();
     const margin = 10;
     const contentWidth = pageWidth - margin * 2;
     let currentY = 20;
     
-    // Date
     pdfDoc.setFontSize(10);
     pdfDoc.setFont('helvetica', 'normal');
     pdfDoc.text(format(new Date(), 'dd/MM/yyyy', { locale: ptBR }), pageWidth - margin, currentY, { align: 'right' });
 
     currentY += 6;
 
-    // PEDIDO DE VENDA Title
     pdfDoc.setFontSize(14);
     pdfDoc.setFont('helvetica', 'bold');
     const pedidoVendaX = margin + (contentWidth / 2);
     pdfDoc.text("PEDIDO DE VENDA", pedidoVendaX, currentY, { align: 'center', maxWidth: contentWidth });
     
     currentY += 5; 
-    // Linha divisória
     pdfDoc.setLineWidth(0.5);
     pdfDoc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 8;
 
-    // Detalhes do Cliente
     pdfDoc.setFontSize(8);
     const fieldHeight = 5;
     const col1X = margin;
@@ -178,7 +174,9 @@ export function BudgetList() {
     pdfDoc.text("VALIDO POR 7 DIAS", col1X, currentY);
     pdfDoc.text("PRAZO DE ENTREGA", col2X, currentY);
     pdfDoc.setFont('helvetica', 'normal');
-    pdfDoc.text("30 DIAS ULTEIS", col2X + 30, currentY);
+    const deliveryTimeText = budget.deliveryTime || "A COMBINAR";
+    pdfDoc.text(deliveryTimeText.toUpperCase(), col2X + pdfDoc.getTextWidth("PRAZO DE ENTREGA ") + 2, currentY);
+
 
     currentY += 6;
     pdfDoc.line(margin, currentY, pageWidth - margin, currentY);
@@ -372,5 +370,6 @@ export function BudgetList() {
 
 
     
+
 
 
