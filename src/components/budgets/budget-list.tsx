@@ -284,7 +284,7 @@ export function BudgetList() {
             placeholder="Buscar por cliente ou ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-sm"
+            className="sm:max-w-xs w-full"
         />
         <Select value={statusFilter} onValueChange={(value: BudgetStatus | 'all') => setStatusFilter(value)}>
             <SelectTrigger className="w-full sm:w-[180px]">
@@ -302,12 +302,12 @@ export function BudgetList() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
+              <TableHead className="w-[100px] sm:w-[120px]">ID</TableHead>
               <TableHead>Cliente</TableHead>
-              <TableHead className="hidden md:table-cell">Data Criação</TableHead>
-              <TableHead>Valor Total</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead className="hidden md:table-cell w-[120px]">Data Criação</TableHead>
+              <TableHead className="text-right w-[130px] sm:w-[150px]">Valor Total</TableHead>
+              <TableHead className="text-center w-[110px] sm:w-[130px]">Status</TableHead>
+              <TableHead className="text-right w-[80px]">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -317,9 +317,9 @@ export function BudgetList() {
                   <TableCell className="font-mono text-xs">{budget.id.substring(0,8)}...</TableCell>
                   <TableCell className="font-medium">{budget.clientName}</TableCell>
                   <TableCell className="hidden md:table-cell">{new Date(budget.createdAt).toLocaleDateString('pt-BR')}</TableCell>
-                  <TableCell>{budget.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
-                  <TableCell>
-                    <Badge className={`${statusColors[budget.status]} text-white`}>{statusLabels[budget.status]}</Badge>
+                  <TableCell className="text-right">{budget.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
+                  <TableCell className="text-center">
+                    <Badge className={`${statusColors[budget.status]} text-white text-xs px-2 py-1`}>{statusLabels[budget.status]}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -364,3 +364,4 @@ export function BudgetList() {
 }
 
     
+
