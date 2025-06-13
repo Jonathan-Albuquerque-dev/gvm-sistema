@@ -13,7 +13,9 @@ export interface Client {
   // userId?: string; // Optional: for multi-user apps
 }
 
-export type ProductCategory = 'electrical' | 'hydraulic' | 'carpentry' | 'other';
+export type ProductCategory = 'produto' | 'serviço';
+export const PRODUCT_CATEGORIES: ProductCategory[] = ['produto', 'serviço'];
+
 
 export interface Product {
   id: string;
@@ -93,3 +95,4 @@ export interface FixedCost {
   updatedAt?: string; // ISO Date String
   // userId?: string;
 }
+

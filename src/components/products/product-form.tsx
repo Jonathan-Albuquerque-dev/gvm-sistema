@@ -11,19 +11,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import type { Product, ProductCategory } from '@/types';
+import { type Product, type ProductCategory, PRODUCT_CATEGORIES } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
-const productCategories: ProductCategory[] = ['electrical', 'hydraulic', 'carpentry', 'other'];
-
 const productCategoryTranslations: Record<ProductCategory, string> = {
-    electrical: 'Elétrica',
-    hydraulic: 'Hidráulica',
-    carpentry: 'Marcenaria',
-    other: 'Outros',
+    produto: 'Produto',
+    serviço: 'Serviço',
 };
 
 const formSchema = z.object({
@@ -31,7 +27,7 @@ const formSchema = z.object({
   description: z.string().min(10, { message: 'Descrição muito curta.' }).optional(),
   salePrice: z.coerce.number().positive({ message: 'Preço de venda deve ser positivo.' }),
   costPrice: z.coerce.number().positive({ message: 'Preço de custo deve ser positivo.' }),
-  category: z.enum(productCategories, { required_error: 'Selecione uma categoria.' }),
+  category: z.enum(PRODUCT_CATEGORIES, { required_error: 'Selecione uma categoria.' }),
 });
 
 interface ProductFormProps {
@@ -119,9 +115,9 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nome do Produto*</FormLabel>
+                  <FormLabel>Nome do Produto/Serviço*</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Disjuntor Bipolar 40A" {...field} disabled={isLoading} />
+                    <Input placeholder="Ex: Instalação Elétrica Residencial" {...field} disabled={isLoading} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -134,7 +130,7 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
                 <FormItem>
                   <FormLabel>Descrição</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Detalhes sobre o produto..." {...field} value={field.value ?? ''} disabled={isLoading} />
+                    <Textarea placeholder="Detalhes sobre o produto ou serviço..." {...field} value={field.value ?? ''} disabled={isLoading} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -182,7 +178,7 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {productCategories.map(cat => (
+                      {PRODUCT_CATEGORIES.map(cat => (
                         <SelectItem key={cat} value={cat}>
                           {productCategoryTranslations[cat] || cat}
                         </SelectItem>
@@ -195,7 +191,7 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
             />
             <Button type="submit" className="w-full md:w-auto" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isLoading ? (product ? 'Salvando...' : 'Cadastrando...') : (product ? 'Salvar Alterações' : 'Cadastrar Produto')}
+              {isLoading ? (product ? 'Salvando...' : 'Cadastrando...') : (product ? 'Salvar Alterações' : 'Cadastrar Item')}
             </Button>
           </form>
         </Form>

@@ -12,10 +12,10 @@ const fifteenDaysAgo = new Date(new Date().setDate(today.getDate() - 15));
 // MOCK_PRODUCTS is kept for initial structure but ProductList and BudgetForm now fetch from Firebase.
 // It's a fallback for PDF generation in BudgetList if live product data isn't readily available there.
 export const MOCK_PRODUCTS: Product[] = [
-  { id: 'prod-1', name: 'Disjuntor Bipolar 40A', description: 'Disjuntor termomagnético bipolar 40A', salePrice: 45.90, costPrice: 22.50, category: 'electrical', createdAt: oneMonthAgo.toISOString() },
-  { id: 'prod-2', name: 'Tubo PVC Esgoto 100mm', description: 'Barra com 6m de tubo PVC para esgoto DN100', salePrice: 89.00, costPrice: 45.00, category: 'hydraulic', createdAt: twoMonthsAgo.toISOString() },
-  { id: 'prod-3', name: 'MDF Branco 18mm', description: 'Chapa de MDF Branco TX 18mm 275x183cm', salePrice: 250.00, costPrice: 150.00, category: 'carpentry', createdAt: today.toISOString() },
-  { id: 'prod-4', name: 'Luminária LED Sobrepor 18W', description: 'Luminária LED quadrada de sobrepor 18W Bivolt', salePrice: 35.50, costPrice: 18.00, category: 'electrical', createdAt: oneMonthAgo.toISOString() },
+  { id: 'prod-1', name: 'Disjuntor Bipolar 40A', description: 'Disjuntor termomagnético bipolar 40A', salePrice: 45.90, costPrice: 22.50, category: 'produto', createdAt: oneMonthAgo.toISOString() },
+  { id: 'prod-2', name: 'Tubo PVC Esgoto 100mm', description: 'Barra com 6m de tubo PVC para esgoto DN100', salePrice: 89.00, costPrice: 45.00, category: 'produto', createdAt: twoMonthsAgo.toISOString() },
+  { id: 'prod-3', name: 'MDF Branco 18mm', description: 'Chapa de MDF Branco TX 18mm 275x183cm', salePrice: 250.00, costPrice: 150.00, category: 'produto', createdAt: today.toISOString() },
+  { id: 'prod-4', name: 'Consultoria Inicial', description: 'Consultoria técnica para levantamento de necessidades', salePrice: 350.00, costPrice: 50.00, category: 'serviço', createdAt: oneMonthAgo.toISOString() },
 ];
 
 // MOCK_CLIENTS is removed as Reports page now fetches from Firebase.

@@ -16,10 +16,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
 const categoryLabels: Record<ProductCategory, string> = {
-  electrical: 'Elétrica',
-  hydraulic: 'Hidráulica',
-  carpentry: 'Marcenaria',
-  other: 'Outros',
+  produto: 'Produto',
+  serviço: 'Serviço',
 };
 
 export function ProductList() {
@@ -55,20 +53,20 @@ export function ProductList() {
   };
 
   const handleDelete = async (productId: string, productName: string) => {
-    if (!window.confirm(`Tem certeza que deseja excluir o produto "${productName}"? Esta ação não pode ser desfeita.`)) {
+    if (!window.confirm(`Tem certeza que deseja excluir o item "${productName}"? Esta ação não pode ser desfeita.`)) {
         return;
     }
     try {
       await deleteDoc(doc(db, 'products', productId));
       toast({
-        title: 'Produto Excluído!',
-        description: `O produto "${productName}" foi excluído com sucesso do Firebase.`,
+        title: 'Item Excluído!',
+        description: `O item "${productName}" foi excluído com sucesso.`,
       });
     } catch (error) {
-      console.error("Erro ao excluir produto:", error);
+      console.error("Erro ao excluir item:", error);
       toast({
         title: 'Erro ao Excluir',
-        description: `Não foi possível excluir o produto "${productName}". Tente novamente.`,
+        description: `Não foi possível excluir o item "${productName}". Tente novamente.`,
         variant: 'destructive',
       });
     }
@@ -85,7 +83,7 @@ export function ProductList() {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2">Carregando produtos...</p>
+        <p className="ml-2">Carregando itens...</p>
       </div>
     );
   }
@@ -94,7 +92,7 @@ export function ProductList() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-2">
         <Input 
-            placeholder="Buscar produtos..."
+            placeholder="Buscar produtos ou serviços..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="max-w-sm"
@@ -160,16 +158,17 @@ export function ProductList() {
             ) : (
                <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
-                  Nenhum produto encontrado. {products.length === 0 && !searchTerm && categoryFilter === 'all' ? "Cadastre o primeiro produto." : ""}
+                  Nenhum item encontrado. {products.length === 0 && !searchTerm && categoryFilter === 'all' ? "Cadastre o primeiro item." : ""}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
            {filteredProducts.length === 0 && (products.length > 0 || searchTerm || categoryFilter !== 'all') && (
-             <TableCaption>Nenhum produto encontrado para os filtros aplicados.</TableCaption>
+             <TableCaption>Nenhum item encontrado para os filtros aplicados.</TableCaption>
            )}
         </Table>
       </div>
     </div>
   );
 }
+

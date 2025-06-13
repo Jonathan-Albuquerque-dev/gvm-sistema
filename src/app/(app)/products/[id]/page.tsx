@@ -12,10 +12,8 @@ import type { Product, ProductCategory } from '@/types';
 import { Badge } from '@/components/ui/badge';
 
 const categoryTranslations: Record<ProductCategory, string> = {
-    electrical: 'Elétrica',
-    hydraulic: 'Hidráulica',
-    carpentry: 'Marcenaria',
-    other: 'Outros',
+    produto: 'Produto',
+    serviço: 'Serviço',
 };
 
 export default function ProductDetailPage() {
@@ -39,18 +37,18 @@ export default function ProductDetailPage() {
           if (productDocSnap.exists()) {
             setProduct({ id: productDocSnap.id, ...productDocSnap.data() } as Product);
           } else {
-            setError("Produto não encontrado.");
+            setError("Produto/Serviço não encontrado.");
           }
         } catch (err) {
-          console.error("Erro ao buscar produto:", err);
-          setError("Falha ao carregar dados do produto.");
+          console.error("Erro ao buscar produto/serviço:", err);
+          setError("Falha ao carregar dados do produto/serviço.");
         } finally {
           setIsLoading(false);
         }
       };
       fetchProduct();
     } else {
-        setError("ID do produto não fornecido.");
+        setError("ID do produto/serviço não fornecido.");
         setIsLoading(false);
     }
   }, [productId]);
@@ -67,8 +65,8 @@ export default function ProductDetailPage() {
   return (
     <>
       <PageHeader 
-        title={product ? `Detalhes de ${product.name}` : "Detalhes do Produto"}
-        description={product ? `Visualizando dados do produto ID: ${productId.substring(0,8)}...` : "Carregando..."}
+        title={product ? `Detalhes de ${product.name}` : "Detalhes do Item"}
+        description={product ? `Visualizando dados do item ID: ${productId.substring(0,8)}...` : "Carregando..."}
       >
         <Button variant="outline" onClick={() => router.back()}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
@@ -78,7 +76,7 @@ export default function ProductDetailPage() {
       {isLoading && (
         <div className="flex flex-col items-center justify-center h-64 p-8 bg-card rounded-lg shadow">
           <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-          <p className="text-muted-foreground">Carregando dados do produto...</p>
+          <p className="text-muted-foreground">Carregando dados do item...</p>
         </div>
       )}
 
@@ -87,7 +85,7 @@ export default function ProductDetailPage() {
           <CardHeader className="flex flex-row items-center gap-3 space-y-0">
             <AlertTriangle className="h-8 w-8 text-destructive" />
             <div>
-              <CardTitle className="text-destructive">Erro ao Carregar Produto</CardTitle>
+              <CardTitle className="text-destructive">Erro ao Carregar Item</CardTitle>
               <CardDescription className="text-destructive">{error}</CardDescription>
             </div>
           </CardHeader>
@@ -130,3 +128,4 @@ export default function ProductDetailPage() {
     </>
   );
 }
+
