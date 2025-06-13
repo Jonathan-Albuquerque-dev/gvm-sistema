@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Edit3, Trash2, MoreVertical, Eye, FileDown, Loader2 } from 'lucide-react';
-import { MOCK_PRODUCTS } from '@/lib/mock-data'; // Kept for PDF generation if product details change
 import type { Budget, BudgetStatus, Product, Client } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -38,7 +37,7 @@ const statusColors: Record<BudgetStatus, string> = {
 
 export function BudgetList() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [products, setProducts] = useState<Product[]>([]); // Still needed for PDF details if not in budget item
+  // const [products, setProducts] = useState<Product[]>([]); // Product details for PDF are now in budget.items
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<BudgetStatus | 'all'>('all');
@@ -46,12 +45,6 @@ export function BudgetList() {
   const router = useRouter();
   
   useEffect(() => {
-    // Fetch Products (needed for PDF generation if items only store IDs)
-    // MOCK_PRODUCTS is still used as a fallback if products not found live.
-    // Ideally, product details for PDF should be snapshot at budget creation or fetched live.
-    // For now, we rely on productName and unitPrice in BudgetItem
-    setProducts(MOCK_PRODUCTS); 
-
     setIsLoading(true);
     const q = query(collection(db, 'budgets'), orderBy('createdAt', 'desc'));
     
@@ -72,11 +65,7 @@ export function BudgetList() {
   }, [toast]);
 
   const handleEdit = (budgetId: string) => {
-    toast({
-      title: 'Edição em Desenvolvimento',
-      description: `A funcionalidade para editar o orçamento ${budgetId.substring(0,8)}... está sendo implementada.`,
-    });
-    // router.push(`/budgets/edit/${budgetId}`); // Future implementation
+    router.push(`/budgets/${budgetId}/edit`);
   };
 
   const handleDelete = async (budgetId: string, budgetClientName: string) => {
@@ -100,16 +89,12 @@ export function BudgetList() {
   };
 
   const handleViewDetails = (budgetId: string) => {
-    toast({
-      title: 'Visualização em Desenvolvimento',
-      description: `A funcionalidade para ver detalhes do orçamento ${budgetId.substring(0,8)}... está sendo implementada.`,
-    });
-    // router.push(`/budgets/${budgetId}`); // Future implementation
+    router.push(`/budgets/${budgetId}`);
   };
 
   const handleDownloadPdf = (budget: Budget) => {
     const doc = new jsPDF();
-    const currentClient: Client | undefined = undefined; // Client details for PDF header are not fetched live in this list. Rely on budget.clientName
+    // Client details for PDF header are not fetched live in this list. Rely on budget.clientName
 
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 10;

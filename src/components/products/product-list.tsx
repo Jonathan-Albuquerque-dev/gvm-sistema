@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 const categoryLabels: Record<ProductCategory, string> = {
   electrical: 'Elétrica',
@@ -27,6 +28,7 @@ export function ProductList() {
   const [categoryFilter, setCategoryFilter] = useState<ProductCategory | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     setIsLoading(true);
@@ -49,8 +51,7 @@ export function ProductList() {
   }, [toast]);
 
   const handleEdit = (productId: string) => {
-    toast({ title: 'Funcionalidade em Desenvolvimento', description: `A edição do produto ${productId.substring(0,8)} será implementada.`});
-    // router.push(`/products/edit/${productId}`); // Future implementation
+    router.push(`/products/${productId}/edit`);
   };
 
   const handleDelete = async (productId: string, productName: string) => {
@@ -142,7 +143,7 @@ export function ProductList() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => toast({title: 'Visualização em Desenvolvimento'})}>
+                        <DropdownMenuItem onClick={() => router.push(`/products/${product.id}`)}>
                           <Eye className="mr-2 h-4 w-4" /> Ver Detalhes
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEdit(product.id)}>
@@ -159,7 +160,7 @@ export function ProductList() {
             ) : (
                <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
-                  Nenhum produto encontrado. {products.length === 0 && !searchTerm ? "Cadastre o primeiro produto." : ""}
+                  Nenhum produto encontrado. {products.length === 0 && !searchTerm && categoryFilter === 'all' ? "Cadastre o primeiro produto." : ""}
                 </TableCell>
               </TableRow>
             )}

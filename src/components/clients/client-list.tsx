@@ -51,8 +51,7 @@ export function ClientList() {
   }, [toast]); // Add user to dependency array if filtering by user.uid
 
   const handleEdit = (clientId: string) => {
-    toast({ title: 'Funcionalidade em Desenvolvimento', description: `A edição do cliente ${clientId.substring(0,8)} será implementada.`});
-    // router.push(`/clients/edit/${clientId}`); // Future implementation
+    router.push(`/clients/${clientId}/edit`);
   };
 
   const handleDelete = async (clientId: string, clientName: string) => {
@@ -134,7 +133,7 @@ export function ClientList() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => toast({title: 'Visualização em Desenvolvimento'})}>
+                        <DropdownMenuItem onClick={() => router.push(`/clients/${client.id}`)}>
                           <Eye className="mr-2 h-4 w-4" /> Ver Detalhes
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEdit(client.id)}>
