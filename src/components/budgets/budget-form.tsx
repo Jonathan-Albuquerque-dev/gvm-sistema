@@ -161,35 +161,42 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
   const calculateTotals = useCallback(() => {
     const currentSubtotalItems = watchedItems.reduce((sum, item) => {
       const product = products.find(p => p.id === item.productId);
-      return sum + (product ? product.salePrice * item.quantity : 0);
+      const quantity = Number(item.quantity) || 0;
+      const salePrice = product ? Number(product.salePrice) : 0;
+      return sum + (salePrice * quantity);
     }, 0);
     setSubtotalItems(currentSubtotalItems);
 
     let calculatedDiscount = 0;
+    const discountInputValue = parseFloat(String(watchedDiscountInput)) || 0;
+
     if (watchedDiscountType === 'percentage') {
-      calculatedDiscount = currentSubtotalItems * ((watchedDiscountInput || 0) / 100);
-    } else { // fixed
-      calculatedDiscount = watchedDiscountInput || 0;
+      calculatedDiscount = currentSubtotalItems * (discountInputValue / 100);
+    } else { 
+      calculatedDiscount = discountInputValue;
     }
     setActualDiscountAmount(calculatedDiscount);
 
     const currentMaterialCostInternal = watchedItems.reduce((sum, item) => {
       const product = products.find(p => p.id === item.productId);
-      return sum + (product ? product.costPrice * item.quantity : 0);
+      const quantity = Number(item.quantity) || 0;
+      const costPrice = product ? Number(product.costPrice) : 0;
+      return sum + (costPrice * quantity);
     }, 0);
     setMaterialCost(currentMaterialCostInternal);
     
-    const shippingCostValue = watchedShippingCost || 0;
-    const taxAmountValue = watchedTaxAmount || 0;
+    const shippingCostValue = parseFloat(String(watchedShippingCost)) || 0;
+    const taxAmountValue = parseFloat(String(watchedTaxAmount)) || 0;
     
     const finalTotal = currentSubtotalItems - calculatedDiscount + shippingCostValue + taxAmountValue;
     setTotalAmount(finalTotal);
 
   }, [watchedItems, products, watchedDiscountType, watchedDiscountInput, watchedShippingCost, watchedTaxAmount]);
 
+
   useEffect(() => {
     calculateTotals();
-  }, [watchedItems, products, watchedDiscountType, watchedDiscountInput, watchedShippingCost, watchedTaxAmount, calculateTotals]);
+  }, [calculateTotals]); // Only calculateTotals is needed as it encapsulates all other dependencies
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -206,24 +213,32 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
         return {
             productId: item.productId,
             productName: productDetails?.name || 'Produto Desconhecido',
-            quantity: item.quantity,
+            quantity: Number(item.quantity) || 0,
             unitPrice: productDetails?.salePrice || 0,
-            totalPrice: (productDetails?.salePrice || 0) * item.quantity
+            totalPrice: (productDetails?.salePrice || 0) * (Number(item.quantity) || 0)
         };
     });
 
     const finalSubtotalItems = budgetItemsData.reduce((sum, item) => sum + item.totalPrice, 0);
+    
+    const discountInputValue = parseFloat(String(values.discountInput)) || 0;
     let finalAppliedDiscountAmount = 0;
     if (values.discountType === 'percentage') {
-      finalAppliedDiscountAmount = finalSubtotalItems * ((values.discountInput || 0) / 100);
+      finalAppliedDiscountAmount = finalSubtotalItems * (discountInputValue / 100);
     } else {
-      finalAppliedDiscountAmount = values.discountInput || 0;
+      finalAppliedDiscountAmount = discountInputValue;
     }
 
-    const finalTotalAmount = finalSubtotalItems - finalAppliedDiscountAmount + (values.shippingCost || 0) + (values.taxAmount || 0);
+    const shippingCostValue = parseFloat(String(values.shippingCost)) || 0;
+    const taxAmountValue = parseFloat(String(values.taxAmount)) || 0;
+
+    const finalTotalAmount = finalSubtotalItems - finalAppliedDiscountAmount + shippingCostValue + taxAmountValue;
+    
     const finalMaterialCostInternal = values.items.reduce((sum, item) => {
         const product = products.find(p => p.id === item.productId);
-        return sum + (product ? product.costPrice * item.quantity : 0);
+        const quantity = Number(item.quantity) || 0;
+        const costPrice = product ? Number(product.costPrice) : 0;
+        return sum + (costPrice * quantity);
     }, 0);
 
 
@@ -236,9 +251,9 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
             observations: values.observations || '',
             appliedDiscountAmount: finalAppliedDiscountAmount,
             discountType: values.discountType,
-            discountInput: values.discountInput,
-            shippingCost: values.shippingCost || 0,
-            taxAmount: values.taxAmount || 0,
+            discountInput: discountInputValue,
+            shippingCost: shippingCostValue,
+            taxAmount: taxAmountValue,
             totalAmount: finalTotalAmount,
             materialCostInternal: finalMaterialCostInternal,
             updatedAt: new Date().toISOString(),
@@ -432,7 +447,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                                 <RadioGroup
                                 onValueChange={(value) => {
                                     field.onChange(value);
-                                    form.setValue('discountInput', 0); // Reset discount input when type changes
+                                    form.setValue('discountInput', 0); 
                                 }}
                                 value={field.value}
                                 className="flex flex-col sm:flex-row gap-x-4 gap-y-2"
@@ -562,3 +577,5 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
     </Card>
   );
 }
+
+
