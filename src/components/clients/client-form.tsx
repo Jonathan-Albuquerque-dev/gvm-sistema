@@ -77,11 +77,18 @@ export function ClientForm({ client, onSubmitSuccess }: ClientFormProps) {
       if (onSubmitSuccess) {
         onSubmitSuccess();
       }
-    } catch (error) {
-      console.error("Erro ao salvar cliente:", error);
+    } catch (error: any) {
+      console.error("Erro detalhado ao salvar cliente:", error);
+      let descriptionMessage = 'Não foi possível salvar o cliente. Tente novamente.';
+      if (error.message) {
+        descriptionMessage += ` Detalhe: ${error.message}`;
+      }
+      if (error.code) {
+        descriptionMessage += ` (Código: ${error.code})`;
+      }
       toast({
         title: 'Erro ao Salvar',
-        description: 'Não foi possível salvar o cliente. Tente novamente.',
+        description: descriptionMessage,
         variant: 'destructive',
       });
     } finally {
