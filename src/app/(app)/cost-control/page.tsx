@@ -23,7 +23,7 @@ const categoryTranslations: Record<CostCategory, string> = {
   rent: 'Aluguel',
   utilities: 'Utilidades',
   marketing: 'Marketing',
-  office_supplies: 'Material Escritório',
+  office_supplies: 'Material de Escritório',
   other: 'Outros',
   benefits: 'Benefícios'
 };
@@ -279,7 +279,7 @@ export default function CostControlPage() {
                     <PlusCircle className="mr-2 h-4 w-4" /> Adicionar
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[480px]"> {/* Adjusted width slightly */}
+              <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
                   <DialogTitle>Adicionar Gasto Variável</DialogTitle>
                   <DialogDescription>
@@ -375,3 +375,5 @@ export default function CostControlPage() {
     </>
   );
 }
+
+    

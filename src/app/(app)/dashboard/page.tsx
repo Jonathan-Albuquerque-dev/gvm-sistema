@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { DollarSign, FileText, CheckCircle2, Clock3, PlusCircle, ArrowRight, Loader2 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
-import { MOCK_SALES_DATA } from '@/lib/mock-data'; // MOCK_BUDGETS removed
+import { MOCK_SALES_DATA } from '@/lib/mock-data'; 
 import { useEffect, useState, useMemo } from 'react';
 import type { SalesData, Budget } from '@/types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -36,15 +36,13 @@ const statusLabels: Record<Budget['status'], string> = {
 export default function DashboardPage() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isLoadingBudgets, setIsLoadingBudgets] = useState(true);
-  const [salesData, setSalesData] = useState<SalesData[]>([]); // Kept as mock for now
+  const [salesData, setSalesData] = useState<SalesData[]>([]); 
   const [timeRange, setTimeRange] = useState<string>("6months");
   const { toast } = useToast();
 
   useEffect(() => {
-    // Set static sales data
     setSalesData(MOCK_SALES_DATA);
 
-    // Fetch budgets from Firestore
     setIsLoadingBudgets(true);
     const budgetsQuery = query(collection(db, 'budgets'), orderBy('createdAt', 'desc'));
 
@@ -65,7 +63,7 @@ export default function DashboardPage() {
       setIsLoadingBudgets(false);
     });
 
-    return () => unsubscribe(); // Cleanup listener on component unmount
+    return () => unsubscribe(); 
   }, [toast]);
 
   const totalBudgets = useMemo(() => budgets.length, [budgets]);
@@ -77,7 +75,7 @@ export default function DashboardPage() {
     const currentYear = new Date().getFullYear();
     return budgets
       .filter(b => {
-        const budgetDate = new Date(b.updatedAt); // Assuming updatedAt reflects approval date or last relevant update
+        const budgetDate = new Date(b.updatedAt); 
         return b.status === 'approved' && 
                budgetDate.getMonth() === currentMonth &&
                budgetDate.getFullYear() === currentYear;
@@ -86,9 +84,7 @@ export default function DashboardPage() {
   }, [budgets]);
 
   const recentBudgets = useMemo(() => {
-    // Firestore query already sorts by createdAt desc. If we need more, we can fetch with limit.
-    // For now, let's sort the already fetched budgets to ensure the most recent are shown.
-    return [...budgets] // Create a new array to sort
+    return [...budgets] 
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 5);
   }, [budgets]);
@@ -270,3 +266,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    

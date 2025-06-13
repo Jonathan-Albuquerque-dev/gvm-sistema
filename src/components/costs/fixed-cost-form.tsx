@@ -27,6 +27,18 @@ interface FixedCostFormProps {
   onSubmitSuccess?: () => void;
 }
 
+const categoryTranslations: Record<CostCategory, string> = {
+  food: 'Alimentação',
+  transport: 'Transporte',
+  salary: 'Salários',
+  rent: 'Aluguel',
+  utilities: 'Utilidades',
+  marketing: 'Marketing',
+  office_supplies: 'Material de Escritório',
+  other: 'Outros',
+  benefits: 'Benefícios'
+};
+
 export function FixedCostForm({ onSubmitSuccess }: FixedCostFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -111,7 +123,7 @@ export function FixedCostForm({ onSubmitSuccess }: FixedCostFormProps) {
                 <SelectContent>
                   {COST_CATEGORIES.map(cat => (
                     <SelectItem key={cat} value={cat}>
-                      {cat.charAt(0).toUpperCase() + cat.slice(1).replace(/_/g, ' ')}
+                      {categoryTranslations[cat as CostCategory] || cat}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -130,3 +142,5 @@ export function FixedCostForm({ onSubmitSuccess }: FixedCostFormProps) {
     </Form>
   );
 }
+
+    

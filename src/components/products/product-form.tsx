@@ -19,6 +19,13 @@ import { Loader2 } from 'lucide-react';
 
 const productCategories: ProductCategory[] = ['electrical', 'hydraulic', 'carpentry', 'other'];
 
+const productCategoryTranslations: Record<ProductCategory, string> = {
+    electrical: 'Elétrica',
+    hydraulic: 'Hidráulica',
+    carpentry: 'Marcenaria',
+    other: 'Outros',
+};
+
 const formSchema = z.object({
   name: z.string().min(3, { message: 'Nome do produto deve ter pelo menos 3 caracteres.' }),
   description: z.string().min(10, { message: 'Descrição muito curta.' }).optional(),
@@ -177,7 +184,7 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
                     <SelectContent>
                       {productCategories.map(cat => (
                         <SelectItem key={cat} value={cat}>
-                          {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                          {productCategoryTranslations[cat] || cat}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -196,3 +203,5 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
     </Card>
   );
 }
+
+    

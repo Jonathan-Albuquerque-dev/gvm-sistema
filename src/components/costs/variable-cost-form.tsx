@@ -33,6 +33,18 @@ interface VariableCostFormProps {
   onSubmitSuccess?: () => void;
 }
 
+const categoryTranslations: Record<CostCategory, string> = {
+  food: 'Alimentação',
+  transport: 'Transporte',
+  salary: 'Salários',
+  rent: 'Aluguel',
+  utilities: 'Utilidades',
+  marketing: 'Marketing',
+  office_supplies: 'Material de Escritório',
+  other: 'Outros',
+  benefits: 'Benefícios'
+};
+
 export function VariableCostForm({ onSubmitSuccess }: VariableCostFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -52,7 +64,7 @@ export function VariableCostForm({ onSubmitSuccess }: VariableCostFormProps) {
     try {
       await addDoc(collection(db, 'variableCosts'), {
         ...values,
-        date: values.date.toISOString(), // Store date as ISO string
+        date: values.date.toISOString(), 
         createdAt: new Date().toISOString(),
       });
       toast({
@@ -164,7 +176,7 @@ export function VariableCostForm({ onSubmitSuccess }: VariableCostFormProps) {
                 <SelectContent>
                   {COST_CATEGORIES.map(cat => (
                     <SelectItem key={cat} value={cat}>
-                      {cat.charAt(0).toUpperCase() + cat.slice(1).replace(/_/g, ' ')}
+                      {categoryTranslations[cat as CostCategory] || cat}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -183,3 +195,5 @@ export function VariableCostForm({ onSubmitSuccess }: VariableCostFormProps) {
     </Form>
   );
 }
+
+    
