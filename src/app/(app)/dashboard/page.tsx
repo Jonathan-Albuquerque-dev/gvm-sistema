@@ -38,7 +38,7 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader title="Dashboard" description="Visão geral do seu negócio.">
-        <Link href="/budgets/new" legacyBehavior passHref>
+        <Link href="/budgets/new">
           <Button>
             <PlusCircle className="mr-2 h-4 w-4" /> Novo Orçamento
           </Button>

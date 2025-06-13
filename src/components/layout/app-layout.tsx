@@ -1,3 +1,4 @@
+
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
@@ -45,18 +46,16 @@ export function AppLayout({ children }: AppLayoutProps) {
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <Link href={item.href} legacyBehavior passHref>
-                    <SidebarMenuButton
-                      variant="default"
-                      className="w-full justify-start"
-                      asChild
-                    >
-                      <a>
-                        <item.icon className="h-4 w-4 mr-2" />
-                        <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                      </a>
-                    </SidebarMenuButton>
-                  </Link>
+                  <SidebarMenuButton
+                    variant="default"
+                    className="w-full justify-start"
+                    asChild
+                  >
+                    <Link href={item.href}>
+                      <item.icon className="h-4 w-4 mr-2" />
+                      <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

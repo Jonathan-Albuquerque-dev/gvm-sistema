@@ -8,7 +8,7 @@ export default function ClientsPage() {
   return (
     <>
       <PageHeader title="Clientes" description="Gerencie seus clientes.">
-        <Link href="/clients/new" legacyBehavior passHref>
+        <Link href="/clients/new">
           <Button>
             <PlusCircle className="mr-2 h-4 w-4" /> Novo Cliente
           </Button>
