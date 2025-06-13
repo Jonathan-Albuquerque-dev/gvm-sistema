@@ -64,7 +64,7 @@ export default function LoginPage() {
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center items-center gap-2 mb-4">
             <Building className="h-8 w-8 text-primary" />
-            <CardTitle className="text-3xl font-bold">SisGest</CardTitle>
+            <CardTitle className="text-3xl font-bold">GVM</CardTitle>
           </div>
           <CardDescription>Acesse sua conta para gerenciar seus negócios</CardDescription>
         </CardHeader>

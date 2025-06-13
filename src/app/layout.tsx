@@ -4,7 +4,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'BizManager',
+  title: 'GVM',
   description: 'Gestão de Instalações Comerciais',
 };
 

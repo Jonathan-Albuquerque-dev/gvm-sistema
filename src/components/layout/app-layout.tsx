@@ -65,7 +65,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             </Button>
             <div className="group-data-[collapsible=icon]:hidden">
               <h1 className="text-lg font-semibold font-headline text-sidebar-foreground"> 
-                SisGest
+                GVM
               </h1>
               <p className="text-xs text-sidebar-foreground/80">Gestão Comercial</p>
             </div>
@@ -114,7 +114,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 <Button variant="default" size="icon" className="bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90 rounded-md h-8 w-8">
                   <Building className="h-4 w-4" /> 
                 </Button>
-                <h1 className="text-lg font-semibold font-headline">SisGest</h1>
+                <h1 className="text-lg font-semibold font-headline">GVM</h1>
             </Link>
             <SidebarTrigger />
           </div>
