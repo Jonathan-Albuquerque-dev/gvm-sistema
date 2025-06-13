@@ -18,6 +18,13 @@ import type { Budget, BudgetStatus, Client, ProductCategory } from '@/types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+const statusTranslations: Record<BudgetStatus, string> = {
+  draft: 'Rascunho',
+  sent: 'Enviado',
+  approved: 'Aprovado',
+  rejected: 'Rejeitado',
+};
+
 export default function ReportsPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 30),
@@ -73,7 +80,7 @@ export default function ReportsPage() {
       const budgetData = [
         item.id.substring(0,8) + '...',
         item.clientName,
-        item.status.charAt(0).toUpperCase() + item.status.slice(1),
+        statusTranslations[item.status] || item.status,
         item.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
         item.materialCostInternal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
         (item.totalAmount - item.materialCostInternal).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -85,7 +92,7 @@ export default function ReportsPage() {
       head: [tableColumn],
       body: tableRows,
       startY: 35,
-      headStyles: { fillColor: [22, 160, 133] }, // Exemplo de cor de cabeçalho
+      headStyles: { fillColor: [22, 160, 133] }, 
       didDrawPage: function (data) {
         // Adicionar totalizadores no final da tabela, se necessário.
         // Exemplo: doc.text("Total: " + totalVendido, data.settings.margin.left, doc.internal.pageSize.height - 10);
@@ -148,8 +155,8 @@ export default function ReportsPage() {
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="all">Todos Status</SelectItem>
-                    {(['draft', 'sent', 'approved', 'rejected'] as BudgetStatus[]).map(s => (
-                        <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
+                    {(Object.keys(statusTranslations) as BudgetStatus[]).map(s => (
+                        <SelectItem key={s} value={s}>{statusTranslations[s]}</SelectItem>
                     ))}
                 </SelectContent>
               </Select>

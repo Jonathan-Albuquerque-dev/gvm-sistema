@@ -3,13 +3,20 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from '@/components/ui/table';
-import type { Budget } from '@/types'; // Assuming reports will be based on budgets for now
+import type { Budget, BudgetStatus } from '@/types'; // Assuming reports will be based on budgets for now
 
 interface ReportViewProps {
   data: Budget[]; // Example data type, can be more specific for reports
   title: string;
   description?: string;
 }
+
+const statusTranslations: Record<BudgetStatus, string> = {
+  draft: 'Rascunho',
+  sent: 'Enviado',
+  approved: 'Aprovado',
+  rejected: 'Rejeitado',
+};
 
 export function ReportView({ data, title, description }: ReportViewProps) {
   const hasData = data && data.length > 0;
@@ -82,7 +89,7 @@ export function ReportView({ data, title, description }: ReportViewProps) {
               const cells = [
                 <TableCell key={`id-${item.id}`} className="font-mono text-xs">{item.id.substring(0,8)}...</TableCell>,
                 <TableCell key={`clientName-${item.id}`}>{item.clientName}</TableCell>,
-                <TableCell key={`status-${item.id}`}>{item.status}</TableCell>,
+                <TableCell key={`status-${item.id}`}>{statusTranslations[item.status] || item.status}</TableCell>,
                 <TableCell key={`totalAmount-${item.id}`}>{item.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>,
                 <TableCell key={`materialCostInternal-${item.id}`} className="hidden md:table-cell">{item.materialCostInternal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>,
                 <TableCell key={`estimatedMargin-${item.id}`} className="hidden md:table-cell">{(item.totalAmount - item.materialCostInternal).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
