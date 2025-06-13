@@ -10,8 +10,8 @@ import { Edit3, Trash2, MoreVertical, Eye, Loader2 } from 'lucide-react';
 import type { Product, ProductCategory } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase'; // Still needed for deleteDoc
+import { doc, deleteDoc } from 'firebase/firestore'; // Still needed for deleteDoc
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
@@ -20,33 +20,16 @@ const categoryLabels: Record<ProductCategory, string> = {
   serviço: 'Serviço',
 };
 
-export function ProductList() {
-  const [products, setProducts] = useState<Product[]>([]);
+interface ProductListProps {
+  products: Product[];
+  isLoading: boolean;
+}
+
+export function ProductList({ products, isLoading }: ProductListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<ProductCategory | 'all'>('all');
-  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
-
-  useEffect(() => {
-    setIsLoading(true);
-    const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
-    
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const productsData: Product[] = [];
-      querySnapshot.forEach((doc) => {
-        productsData.push({ id: doc.id, ...doc.data() } as Product);
-      });
-      setProducts(productsData);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Erro ao buscar produtos:", error);
-      toast({ title: "Erro ao buscar produtos", description: "Não foi possível carregar a lista de produtos.", variant: "destructive" });
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [toast]);
 
   const handleEdit = (productId: string) => {
     router.push(`/products/${productId}/edit`);
@@ -62,6 +45,7 @@ export function ProductList() {
         title: 'Item Excluído!',
         description: `O item "${productName}" foi excluído com sucesso.`,
       });
+      // A lista será atualizada automaticamente pela página pai via onSnapshot
     } catch (error) {
       console.error("Erro ao excluir item:", error);
       toast({
@@ -158,12 +142,12 @@ export function ProductList() {
             ) : (
                <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
-                  Nenhum item encontrado. {products.length === 0 && !searchTerm && categoryFilter === 'all' ? "Cadastre o primeiro item." : ""}
+                  Nenhum item encontrado. {products.length === 0 && !searchTerm && categoryFilter === 'all' && !isLoading ? "Cadastre o primeiro item." : ""}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
-           {filteredProducts.length === 0 && (products.length > 0 || searchTerm || categoryFilter !== 'all') && (
+           {filteredProducts.length === 0 && (products.length > 0 || searchTerm || categoryFilter !== 'all') && !isLoading && (
              <TableCaption>Nenhum item encontrado para os filtros aplicados.</TableCaption>
            )}
         </Table>
@@ -171,4 +155,3 @@ export function ProductList() {
     </div>
   );
 }
-
