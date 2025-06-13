@@ -67,17 +67,18 @@ export interface Employee {
   // userId?: string;
 }
 
-export type CostCategory = 'food' | 'transport' | 'salary' | 'rent' | 'utilities' | 'marketing' | 'office_supplies' | 'other' | 'benefits';
+export const COST_CATEGORIES = ['food', 'transport', 'salary', 'rent', 'utilities', 'marketing', 'office_supplies', 'other', 'benefits'] as const;
+export type CostCategory = typeof COST_CATEGORIES[number];
 
 
 export interface VariableCost {
   id: string;
   description: string;
   amount: number;
-  date: string;
+  date: string; // Should be ISO string from Date object
   employeeId?: string; 
   employeeName?: string; 
-  category: CostCategory | string; 
+  category: CostCategory | string; // Allow string for flexibility if categories might expand beyond the defined set
   createdAt: string;
   updatedAt?: string; // ISO Date String
   // userId?: string;
@@ -87,9 +88,8 @@ export interface FixedCost {
   id: string;
   description: string;
   amount: number;
-  category: CostCategory | string;
+  category: CostCategory | string; // Allow string
   createdAt: string;
   updatedAt?: string; // ISO Date String
   // userId?: string;
 }
-
