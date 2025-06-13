@@ -62,6 +62,7 @@ export interface Employee {
   position: string; 
   admissionDate: string; 
   createdAt: string;
+  updatedAt?: string; // ISO Date String
   // userId?: string;
 }
 
@@ -77,6 +78,7 @@ export interface VariableCost {
   employeeName?: string; 
   category: CostCategory | string; 
   createdAt: string;
+  updatedAt?: string; // ISO Date String
   // userId?: string;
 }
 
@@ -86,6 +88,7 @@ export interface FixedCost {
   amount: number;
   category: CostCategory | string;
   createdAt: string;
+  updatedAt?: string; // ISO Date String
   // userId?: string;
 }
 

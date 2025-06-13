@@ -31,11 +31,12 @@ export const MOCK_SALES_DATA: SalesData[] = [
   { month: 'Jun', totalSales: 0 }, // Placeholder until live data is integrated here
 ];
 
-export const MOCK_EMPLOYEES: Employee[] = [
-  { id: 'emp-1', name: 'Carlos Pereira', position: 'Eletricista Chefe', admissionDate: new Date(2022, 0, 15).toISOString(), createdAt: new Date(2022, 0, 15).toISOString() },
-  { id: 'emp-2', name: 'Ana Souza', position: 'Auxiliar Administrativo', admissionDate: new Date(2023, 5, 10).toISOString(), createdAt: new Date(2023, 5, 10).toISOString() },
-  { id: 'emp-3', name: 'Roberto Lima', position: 'Marceneiro Pleno', admissionDate: new Date(2021, 8, 1).toISOString(), createdAt: new Date(2021, 8, 1).toISOString() },
-];
+// MOCK_EMPLOYEES removed as EmployeeList now fetches from Firebase
+// export const MOCK_EMPLOYEES: Employee[] = [
+//   { id: 'emp-1', name: 'Carlos Pereira', position: 'Eletricista Chefe', admissionDate: new Date(2022, 0, 15).toISOString(), createdAt: new Date(2022, 0, 15).toISOString() },
+//   { id: 'emp-2', name: 'Ana Souza', position: 'Auxiliar Administrativo', admissionDate: new Date(2023, 5, 10).toISOString(), createdAt: new Date(2023, 5, 10).toISOString() },
+//   { id: 'emp-3', name: 'Roberto Lima', position: 'Marceneiro Pleno', admissionDate: new Date(2021, 8, 1).toISOString(), createdAt: new Date(2021, 8, 1).toISOString() },
+// ];
 
 export const MOCK_VARIABLE_COSTS: VariableCost[] = [
   { id: 'cost-1', description: 'Almoço equipe Carlos', amount: 75.50, date: threeDaysAgo.toISOString(), employeeId: 'emp-1', employeeName: 'Carlos Pereira', category: 'food', createdAt: threeDaysAgo.toISOString()},
@@ -51,6 +52,3 @@ export const MOCK_FIXED_COSTS: FixedCost[] = [
   { id: 'fixed-4', description: 'Conta de Luz Escritório', amount: 150.00, category: 'utilities', createdAt: oneMonthAgo.toISOString()},
   { id: 'fixed-5', description: 'Internet Escritório', amount: 99.00, category: 'utilities', createdAt: oneMonthAgo.toISOString()},
 ];
-
-
-    

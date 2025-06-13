@@ -11,11 +11,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { Employee } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Loader2 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
 
 const formSchema = z.object({
   name: z.string().min(3, { message: 'Nome deve ter pelo menos 3 caracteres.' }),
@@ -24,12 +27,14 @@ const formSchema = z.object({
 });
 
 interface EmployeeFormProps {
-  employee?: Employee; // For editing
+  employee?: Employee | null; 
   onSubmitSuccess?: () => void;
 }
 
 export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: employee ? {
@@ -42,21 +47,58 @@ export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    const employeeToSave = {
+  useEffect(() => {
+    if (employee) {
+      form.reset({
+        ...employee,
+        admissionDate: new Date(employee.admissionDate),
+      });
+    } else {
+      form.reset({ name: '', position: '', admissionDate: undefined });
+    }
+  }, [employee, form]);
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
+    try {
+      const employeeData = {
         ...values,
-        admissionDate: values.admissionDate.toISOString(),
-    }
-    console.log('Dados do Funcionário:', employeeToSave);
-    toast({
-      title: employee ? 'Funcionário Atualizado!' : 'Funcionário Cadastrado!',
-      description: `O funcionário ${values.name} foi ${employee ? 'atualizado' : 'salvo'} com sucesso.`,
-    });
-    if (onSubmitSuccess) {
-      onSubmitSuccess();
-    }
-    if (!employee) { 
+        admissionDate: values.admissionDate.toISOString(), // Store as ISO string
+      };
+
+      if (employee && employee.id) {
+        await updateDoc(doc(db, 'employees', employee.id), {
+          ...employeeData,
+          updatedAt: new Date().toISOString(),
+        });
+        toast({
+          title: 'Funcionário Atualizado!',
+          description: `Os dados de ${values.name} foram atualizados com sucesso.`,
+        });
+      } else {
+        await addDoc(collection(db, 'employees'), {
+          ...employeeData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+        toast({
+          title: 'Funcionário Cadastrado!',
+          description: `${values.name} foi salvo com sucesso.`,
+        });
         form.reset({ name: '', position: '', admissionDate: undefined });
+      }
+      if (onSubmitSuccess) {
+        onSubmitSuccess();
+      }
+    } catch (error: any) {
+      console.error("Erro ao salvar funcionário:", error);
+      toast({
+        title: 'Erro ao Salvar',
+        description: `Não foi possível salvar o funcionário. Detalhe: ${error.message}`,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -75,7 +117,7 @@ export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
                 <FormItem>
                   <FormLabel>Nome Completo*</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Carlos Alberto da Silva" {...field} />
+                    <Input placeholder="Ex: Carlos Alberto da Silva" {...field} disabled={isLoading} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -89,7 +131,7 @@ export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
                   <FormItem>
                     <FormLabel>Cargo*</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Eletricista" {...field} />
+                      <Input placeholder="Ex: Eletricista" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -110,6 +152,7 @@ export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
                               "w-full pl-3 text-left font-normal",
                               !field.value && "text-muted-foreground"
                             )}
+                            disabled={isLoading}
                           >
                             {field.value ? (
                               format(field.value, "PPP", { locale: ptBR })
@@ -138,8 +181,9 @@ export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
                 )}
               />
             </div>
-            <Button type="submit" className="w-full md:w-auto">
-              {employee ? 'Salvar Alterações' : 'Cadastrar Funcionário'}
+            <Button type="submit" className="w-full md:w-auto" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isLoading ? (employee ? 'Salvando...' : 'Cadastrando...') : (employee ? 'Salvar Alterações' : 'Cadastrar Funcionário')}
             </Button>
           </form>
         </Form>
