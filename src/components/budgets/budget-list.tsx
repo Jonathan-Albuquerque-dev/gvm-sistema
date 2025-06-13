@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Edit3, Trash2, MoreVertical, Eye, FileDown } from 'lucide-react';
-import { MOCK_BUDGETS, MOCK_PRODUCTS, MOCK_CLIENTS } from '@/lib/mock-data';
+import { MOCK_BUDGETS, MOCK_PRODUCTS } from '@/lib/mock-data';
 import type { Budget, BudgetStatus, Product, Client } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -37,7 +37,7 @@ const statusColors: Record<BudgetStatus, string> = {
 export function BudgetList() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
+  // const [clients, setClients] = useState<Client[]>([]); // Removed MOCK_CLIENTS
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<BudgetStatus | 'all'>('all');
   const { toast } = useToast();
@@ -46,7 +46,7 @@ export function BudgetList() {
   useEffect(() => {
     setBudgets(MOCK_BUDGETS);
     setProducts(MOCK_PRODUCTS);
-    setClients(MOCK_CLIENTS);
+    // setClients(MOCK_CLIENTS); // Removed MOCK_CLIENTS usage
   }, []);
 
   const handleEdit = (budgetId: string) => {
@@ -75,7 +75,11 @@ export function BudgetList() {
 
   const handleDownloadPdf = (budget: Budget) => {
     const doc = new jsPDF();
-    const currentClient = clients.find(c => c.id === budget.clientId);
+    // Since MOCK_CLIENTS is removed, currentClient will be undefined if we try to find it in an empty local list.
+    // The PDF generation already has fallbacks like budget.clientName.
+    // If more detailed client info from Firebase is needed here in the future,
+    // this component would need to fetch client data similar to ClientList.
+    const currentClient: Client | undefined = undefined; // Explicitly undefined as we don't have the clients list anymore
 
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 10;
@@ -114,7 +118,7 @@ export function BudgetList() {
       { label: "CNPJ:", value: currentClient?.document || "N/A" },
     ];
     const clientDetailsCol2 = [
-      { label: "RAZÃO SOCIAL:", value: currentClient?.companyName || (currentClient?.name.includes(' ') ? "N/A" : "Pessoa Física") },
+      { label: "RAZÃO SOCIAL:", value: currentClient?.companyName || (currentClient?.name?.includes(' ') ? "N/A" : "Pessoa Física") },
       { label: "IE:", value: "N/A" }, // Placeholder
       { label: "CEP:", value: "N/A" }, // Placeholder
       { label: "TEL:", value: currentClient?.phone || "N/A" },
@@ -225,7 +229,7 @@ export function BudgetList() {
       { label: "VALOR FINAL", value: budget.totalAmount, isFinal: true }
     ];
 
-    const totalRowHeight = 10; // Increased row height
+    const totalRowHeight = 10; 
     const totalLabelColumnWidth = 50;
     const totalValueColumnWidth = 40;
     const textPadding = 2;
@@ -240,14 +244,14 @@ export function BudgetList() {
       const valueCellX = totalBlockXStart + totalLabelColumnWidth;
 
       if (total.isFinal) {
-        doc.setFillColor(50, 205, 50); // Green
+        doc.setFillColor(50, 205, 50); 
         doc.rect(labelCellX, currentY, totalLabelColumnWidth + totalValueColumnWidth, totalRowHeight, 'F');
-        doc.setTextColor(255, 255, 255); // White text
+        doc.setTextColor(255, 255, 255); 
       } else {
-        doc.setTextColor(0, 0, 0); // Black text
+        doc.setTextColor(0, 0, 0); 
       }
       
-      doc.setDrawColor(0); // Black border for cells
+      doc.setDrawColor(0); 
       doc.rect(labelCellX, currentY, totalLabelColumnWidth, totalRowHeight);
       doc.text(total.label, labelCellX + textPadding, currentY + totalRowHeight / 2, { align: 'left', baseline: 'middle' });
       
@@ -257,9 +261,9 @@ export function BudgetList() {
       
       currentY += totalRowHeight;
     });
-    doc.setTextColor(0, 0, 0); // Reset text color
+    doc.setTextColor(0, 0, 0); 
 
-    currentY += 5; // Space after totals block
+    currentY += 5; 
 
     // Observations Section
     doc.setFont('helvetica', 'bold');
@@ -267,6 +271,11 @@ export function BudgetList() {
     currentY += 3;
     doc.setLineWidth(0.2);
     doc.rect(margin, currentY, contentWidth, 20); 
+    if (budget.observations) {
+        doc.setFont('helvetica', 'normal');
+        const observationLines = doc.splitTextToSize(budget.observations, contentWidth - 4); // -4 for padding
+        doc.text(observationLines, margin + 2, currentY + 4);
+    }
     currentY += 20 + 5; 
 
     // Footer Section
@@ -287,10 +296,10 @@ export function BudgetList() {
     const signatureY = doc.internal.pageSize.getHeight() - 25 > currentY ? doc.internal.pageSize.getHeight() - 25 : currentY;
 
     doc.line(margin + 10, signatureY, margin + 70, signatureY);
-    doc.text("Cliente", margin + 40, signatureY + 4, { align: 'center'}); // Centered text
+    doc.text("Cliente", margin + 40, signatureY + 4, { align: 'center'}); 
 
     doc.line(pageWidth - margin - 70, signatureY, pageWidth - margin - 10, signatureY);
-    doc.text("Vendedor", pageWidth - margin - 40, signatureY + 4, {align: 'center'}); // Centered text
+    doc.text("Vendedor", pageWidth - margin - 40, signatureY + 4, {align: 'center'}); 
     
     doc.save(`pedido_venda_${budget.clientName.replace(/\s+/g, '_')}_${budget.id.substring(0,6)}.pdf`);
     toast({
@@ -391,4 +400,3 @@ export function BudgetList() {
     </div>
   );
 }
-
