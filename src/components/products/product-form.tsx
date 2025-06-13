@@ -12,9 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { Product, ProductCategory } from '@/types';
-import { db } from '@/lib/firebase'; // Import Firestore instance
-import { collection, addDoc } from 'firebase/firestore';
-import { useState } from 'react';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 
 const productCategories: ProductCategory[] = ['electrical', 'hydraulic', 'carpentry', 'other'];
 
@@ -27,7 +28,7 @@ const formSchema = z.object({
 });
 
 interface ProductFormProps {
-  product?: Product; // For editing (not fully implemented with Firestore yet)
+  product?: Product | null;
   onSubmitSuccess?: () => void;
 }
 
@@ -46,22 +47,35 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
     },
   });
 
+  useEffect(() => {
+    if (product) {
+      form.reset(product);
+    } else {
+      form.reset({ name: '', description: '', salePrice: 0, costPrice: 0, category: undefined });
+    }
+  }, [product, form]);
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      if (product) {
-        // TODO: Implement update logic for Firestore
-        console.log('Update product:', { id: product.id, ...values });
+      if (product && product.id) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { ...valuesToUpdate } = values;
+        await updateDoc(doc(db, 'products', product.id), {
+          ...valuesToUpdate,
+          description: values.description || '', 
+          updatedAt: new Date().toISOString(),
+        });
         toast({
-          title: 'Funcionalidade em Desenvolvimento',
-          description: 'A atualização de produtos no Firebase será implementada em breve.',
+          title: 'Produto Atualizado!',
+          description: `O produto ${values.name} foi atualizado com sucesso.`,
         });
       } else {
         const productData = {
           ...values,
-          description: values.description || '', // Ensure description is not undefined
+          description: values.description || '', 
           createdAt: new Date().toISOString(),
-          // userId: user?.uid, // Optional: associate product with user
+          updatedAt: new Date().toISOString(),
         };
         await addDoc(collection(db, 'products'), productData);
         toast({
@@ -113,7 +127,7 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
                 <FormItem>
                   <FormLabel>Descrição</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Detalhes sobre o produto..." {...field} disabled={isLoading} />
+                    <Textarea placeholder="Detalhes sobre o produto..." {...field} value={field.value ?? ''} disabled={isLoading} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -154,7 +168,7 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Categoria*</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={isLoading}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione uma categoria" />
@@ -173,6 +187,7 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
               )}
             />
             <Button type="submit" className="w-full md:w-auto" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? (product ? 'Salvando...' : 'Cadastrando...') : (product ? 'Salvar Alterações' : 'Cadastrar Produto')}
             </Button>
           </form>

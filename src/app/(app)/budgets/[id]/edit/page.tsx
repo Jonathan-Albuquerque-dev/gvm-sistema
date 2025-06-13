@@ -1,59 +1,105 @@
 
 'use client';
 import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
-// import { BudgetForm } from '@/components/budgets/budget-form';
-// import { db } from '@/lib/firebase';
-// import { doc, getDoc } from 'firebase/firestore';
-// import type { Budget } from '@/types';
-// import { useEffect, useState } from 'react';
+import { ArrowLeft, Loader2, AlertTriangle } from 'lucide-react';
+import { BudgetForm } from '@/components/budgets/budget-form';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import type { Budget } from '@/types';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default function EditBudgetPage() {
   const params = useParams();
   const router = useRouter();
   const budgetId = params.id as string;
-  // const [budget, setBudget] = useState<Budget | null>(null);
-  // const [loading, setLoading] = useState(true);
 
-  // useEffect(() => {
-  //   if (budgetId) {
-  //     const fetchBudget = async () => {
-  //       setLoading(true);
-  //       const budgetDoc = await getDoc(doc(db, 'budgets', budgetId));
-  //       if (budgetDoc.exists()) {
-  //         setBudget({ id: budgetDoc.id, ...budgetDoc.data() } as Budget);
-  //       } else {
-  //         console.error("Orçamento não encontrado para edição.");
-  //       }
-  //       setLoading(false);
-  //     };
-  //     fetchBudget();
-  //   }
-  // }, [budgetId]);
+  const [budget, setBudget] = useState<Budget | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // if (loading) return <p>Carregando dados do orçamento para edição...</p>;
-  // if (!budget && !loading) return <p>Orçamento não encontrado.</p>;
+  useEffect(() => {
+    if (budgetId) {
+      const fetchBudget = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const budgetDocRef = doc(db, 'budgets', budgetId);
+          const budgetDocSnap = await getDoc(budgetDocRef);
+
+          if (budgetDocSnap.exists()) {
+            setBudget({ id: budgetDocSnap.id, ...budgetDocSnap.data() } as Budget);
+          } else {
+            setError("Orçamento não encontrado para edição.");
+          }
+        } catch (err) {
+          console.error("Erro ao buscar orçamento para edição:", err);
+          setError("Falha ao carregar dados do orçamento para edição.");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchBudget();
+    } else {
+        setError("ID do orçamento não fornecido.");
+        setIsLoading(false);
+    }
+  }, [budgetId]);
+
+  const handleSuccess = () => {
+    router.push('/budgets');
+  };
 
   return (
     <>
       <PageHeader 
-        title="Editar Orçamento" 
-        description={`Modificando dados do orçamento ID: ${budgetId}`}
+        title={budget ? `Editar Orçamento #${budgetId.substring(0,8)}...` : "Editar Orçamento"}
+        description={budget ? `Modificando dados para ${budget.clientName}` : "Carregando..."}
       >
         <Button variant="outline" onClick={() => router.back()}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
         </Button>
       </PageHeader>
-      <div className="bg-card p-6 rounded-lg shadow">
-        <p className="text-lg">ID do Orçamento para Edição: <span className="font-mono">{budgetId}</span></p>
-        {/* {budget && <BudgetForm budget={budget} onSubmitSuccess={() => router.push('/budgets')} />} */}
-        <p className="mt-4 text-muted-foreground">
-          Esta é uma página de placeholder para a edição do orçamento.
-          O formulário de edição preenchido com os dados do orçamento será implementado aqui.
-        </p>
-      </div>
+
+      {isLoading && (
+        <div className="flex flex-col items-center justify-center h-64 p-8 bg-card rounded-lg shadow">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground">Carregando dados do orçamento para edição...</p>
+        </div>
+      )}
+
+      {error && !isLoading && (
+         <Card className="shadow-lg border-destructive">
+          <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+            <AlertTriangle className="h-8 w-8 text-destructive" />
+            <div>
+              <CardTitle className="text-destructive">Erro ao Carregar Edição</CardTitle>
+              <CardDescription className="text-destructive">{error}</CardDescription>
+            </div>
+          </CardHeader>
+           <CardContent>
+             <Button onClick={() => router.push('/budgets')}>Voltar para Orçamentos</Button>
+           </CardContent>
+        </Card>
+      )}
+
+      {!isLoading && !error && budget && (
+        <BudgetForm budget={budget} onSubmitSuccess={handleSuccess} />
+      )}
+      
+      {!isLoading && !error && !budget && !budgetId && ( 
+         <Card className="shadow-lg border-destructive">
+          <CardHeader>
+              <CardTitle className="text-destructive">Erro</CardTitle>
+              <CardDescription className="text-destructive">ID do orçamento não fornecido na URL.</CardDescription>
+          </CardHeader>
+           <CardContent>
+             <Button onClick={() => router.push('/budgets')}>Voltar para Orçamentos</Button>
+           </CardContent>
+        </Card>
+      )}
     </>
   );
 }

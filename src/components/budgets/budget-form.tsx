@@ -15,13 +15,13 @@ import type { Budget, BudgetStatus, Client, Product, BudgetItem } from '@/types'
 import { useEffect, useState, useCallback } from 'react';
 import { PlusCircle, Trash2, FileDown, Loader2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 
 const budgetItemSchema = z.object({
   productId: z.string().min(1, "Selecione um produto."),
   quantity: z.coerce.number().min(1, "Quantidade deve ser pelo menos 1."),
-  unitPrice: z.coerce.number(), // Will be set from product
-  productName: z.string(), // Will be set from product
+  unitPrice: z.coerce.number(), 
+  productName: z.string(), 
 });
 
 const formSchema = z.object({
@@ -32,7 +32,7 @@ const formSchema = z.object({
 });
 
 interface BudgetFormProps {
-  budget?: Budget; // For editing (not fully implemented for Firestore yet)
+  budget?: Budget | null; 
   onSubmitSuccess?: () => void;
 }
 
@@ -83,7 +83,12 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: budget ? {
       clientId: budget.clientId,
-      items: budget.items.map(item => ({ ...item, unitPrice: item.unitPrice, productName: item.productName })),
+      items: budget.items.map(item => ({ 
+        productId: item.productId, 
+        quantity: item.quantity, 
+        unitPrice: item.unitPrice, 
+        productName: item.productName 
+      })),
       status: budget.status,
       observations: budget.observations || '',
     } : {
@@ -93,25 +98,44 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
       observations: '',
     },
   });
+  
+  useEffect(() => {
+    if (budget) {
+        form.reset({
+            clientId: budget.clientId,
+            items: budget.items.map(item => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                productName: item.productName
+            })),
+            status: budget.status,
+            observations: budget.observations || '',
+        });
+    } else {
+        form.reset({ clientId: '', items: [], status: 'draft', observations: '' });
+    }
+  }, [budget, form]);
+
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "items"
   });
 
-  const selectedProducts = form.watch('items');
+  const selectedFormItems = form.watch('items');
 
   const calculateTotals = useCallback(() => {
-    const itemsTotal = selectedProducts.reduce((sum, item) => {
+    const itemsTotal = selectedFormItems.reduce((sum, item) => {
       const product = products.find(p => p.id === item.productId);
       return sum + (product ? product.salePrice * item.quantity : 0);
     }, 0);
-    const materialCostInternal = selectedProducts.reduce((sum, item) => {
+    const materialCostInternal = selectedFormItems.reduce((sum, item) => {
       const product = products.find(p => p.id === item.productId);
       return sum + (product ? product.costPrice * item.quantity : 0);
     }, 0);
     return { itemsTotal, materialCostInternal };
-  }, [selectedProducts, products]);
+  }, [selectedFormItems, products]);
 
 
   const [totalAmount, setTotalAmount] = useState(0);
@@ -121,7 +145,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
     const { itemsTotal, materialCostInternal } = calculateTotals();
     setTotalAmount(itemsTotal); 
     setMaterialCost(materialCostInternal);
-  }, [selectedProducts, products, calculateTotals]);
+  }, [selectedFormItems, products, calculateTotals]);
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -133,27 +157,40 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
         return;
     }
 
+    const budgetItemsData = values.items.map(item => {
+        const productDetails = products.find(p => p.id === item.productId);
+        return {
+            productId: item.productId,
+            productName: productDetails?.name || 'Produto Desconhecido',
+            quantity: item.quantity,
+            unitPrice: productDetails?.salePrice || 0,
+            totalPrice: (productDetails?.salePrice || 0) * item.quantity
+        };
+    });
+
     try {
-        if (budget) {
-            // TODO: Implement update logic for Firestore
-            console.log('Update budget:', { id: budget.id, ...values });
-            toast({
-            title: 'Funcionalidade em Desenvolvimento',
-            description: 'A atualização de orçamentos no Firebase será implementada em breve.',
-            });
-        } else {
-            const budgetData = {
+        if (budget && budget.id) {
+            const budgetDataForUpdate = {
                 clientId: values.clientId,
                 clientName: selectedClient.name,
-                items: values.items.map(item => {
-                    const product = products.find(p => p.id === item.productId);
-                    return {
-                        ...item,
-                        unitPrice: product?.salePrice || 0,
-                        productName: product?.name || 'Produto Desconhecido',
-                        totalPrice: (product?.salePrice || 0) * item.quantity
-                    };
-                }),
+                items: budgetItemsData,
+                status: values.status,
+                observations: values.observations || '',
+                totalAmount,
+                materialCostInternal: materialCost,
+                updatedAt: new Date().toISOString(),
+                // createdAt will remain from the original document
+            };
+            await updateDoc(doc(db, 'budgets', budget.id), budgetDataForUpdate);
+            toast({
+                title: 'Orçamento Atualizado!',
+                description: `O orçamento para ${selectedClient.name} foi atualizado com sucesso.`,
+            });
+        } else {
+            const budgetDataForCreate = {
+                clientId: values.clientId,
+                clientName: selectedClient.name,
+                items: budgetItemsData,
                 status: values.status,
                 observations: values.observations || '',
                 totalAmount,
@@ -161,7 +198,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
             };
-            await addDoc(collection(db, 'budgets'), budgetData);
+            await addDoc(collection(db, 'budgets'), budgetDataForCreate);
             toast({
                 title: 'Orçamento Criado!',
                 description: `O orçamento para ${selectedClient.name} foi salvo com sucesso.`,
@@ -204,7 +241,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                     <FormLabel>Cliente*</FormLabel>
                     <Select 
                         onValueChange={field.onChange} 
-                        defaultValue={field.value}
+                        value={field.value} // Ensure value is controlled
                         disabled={isFetchingClients || isLoading}
                     >
                       <FormControl>
@@ -229,7 +266,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Status*</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione um status" />
@@ -269,11 +306,11 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                           <Select 
                             onValueChange={(value) => {
                               formField.onChange(value);
-                              const product = products.find(p => p.id === value);
-                              form.setValue(`items.${index}.unitPrice`, product?.salePrice || 0);
-                              form.setValue(`items.${index}.productName`, product?.name || '');
+                              const productDetails = products.find(p => p.id === value);
+                              form.setValue(`items.${index}.unitPrice`, productDetails?.salePrice || 0);
+                              form.setValue(`items.${index}.productName`, productDetails?.name || '');
                             }} 
-                            defaultValue={formField.value}
+                            value={formField.value} // Ensure value is controlled
                             disabled={isFetchingProducts || isLoading}
                           >
                             <FormControl>
@@ -338,6 +375,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                       placeholder="Adicione observações relevantes para este orçamento (ex: condições de pagamento, prazos específicos, etc.)"
                       className="resize-y"
                       {...field}
+                      value={field.value ?? ''}
                       disabled={isLoading}
                     />
                   </FormControl>
@@ -356,7 +394,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                 </Button>
                 <Button type="submit" className="w-full sm:w-auto" disabled={isLoading || isFetchingClients || isFetchingProducts}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {budget ? 'Salvar Alterações' : (isLoading ? 'Criando...' : 'Criar Orçamento')}
+                  {budget ? (isLoading ? 'Salvando...' : 'Salvar Alterações') : (isLoading ? 'Criando...' : 'Criar Orçamento')}
                 </Button>
             </div>
           </form>
@@ -365,5 +403,3 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
     </Card>
   );
 }
-
-    

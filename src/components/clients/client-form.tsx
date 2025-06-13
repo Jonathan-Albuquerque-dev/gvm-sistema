@@ -10,10 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { Client } from '@/types';
-import { db } from '@/lib/firebase'; // Import Firestore instance
-import { collection, addDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase'; 
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { useState } from 'react';
-// import { useAuth } from '@/hooks/useAuth'; // If you need userId
+import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Nome deve ter pelo menos 2 caracteres.' }),
@@ -25,13 +25,12 @@ const formSchema = z.object({
 });
 
 interface ClientFormProps {
-  client?: Client; // For editing (not fully implemented with Firestore yet)
+  client?: Client | null; // Allow null for initial state before fetch
   onSubmitSuccess?: () => void;
 }
 
 export function ClientForm({ client, onSubmitSuccess }: ClientFormProps) {
   const { toast } = useToast();
-  // const { user } = useAuth(); // Uncomment if you store userId with client
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -46,33 +45,49 @@ export function ClientForm({ client, onSubmitSuccess }: ClientFormProps) {
     },
   });
 
+  // Effect to reset form when client prop changes (e.g., after fetching data for edit)
+  React.useEffect(() => {
+    if (client) {
+      form.reset(client);
+    } else {
+      form.reset({
+        name: '',
+        companyName: '',
+        document: '',
+        address: '',
+        email: '',
+        phone: '',
+      });
+    }
+  }, [client, form]);
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    // if (!user && !client) { // Example check if userId is required
-    //   toast({ title: "Erro", description: "Você precisa estar logado para criar um cliente.", variant: "destructive" });
-    //   return;
-    // }
     setIsLoading(true);
     try {
-      if (client) {
-        // TODO: Implement update logic for Firestore
-        console.log('Update client:', { id: client.id, ...values });
+      if (client && client.id) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { ...valuesToUpdate } = values; // 'createdAt' is not in formSchema, so no need to exclude
+        await updateDoc(doc(db, 'clients', client.id), {
+          ...valuesToUpdate,
+          updatedAt: new Date().toISOString(),
+        });
         toast({
-          title: 'Funcionalidade em Desenvolvimento',
-          description: 'A atualização de clientes no Firebase será implementada em breve.',
+          title: 'Cliente Atualizado!',
+          description: `O cliente ${values.name} foi atualizado com sucesso.`,
         });
       } else {
         const clientData = {
           ...values,
-          budgetIds: [], // Initialize with empty budgetIds
+          budgetIds: [],
           createdAt: new Date().toISOString(),
-          // userId: user?.uid, // Optional: associate client with user
+          updatedAt: new Date().toISOString(),
         };
         await addDoc(collection(db, 'clients'), clientData);
         toast({
           title: 'Cliente Criado!',
           description: `O cliente ${values.name} foi salvo com sucesso no Firebase.`,
         });
-        form.reset(); // Reset form only when creating new
+        form.reset({ name: '', companyName: '', document: '', address: '', email: '', phone: '' });
       }
       if (onSubmitSuccess) {
         onSubmitSuccess();
@@ -187,6 +202,7 @@ export function ClientForm({ client, onSubmitSuccess }: ClientFormProps) {
               />
             </div>
             <Button type="submit" className="w-full md:w-auto" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? (client ? 'Salvando...' : 'Cadastrando...') : (client ? 'Salvar Alterações' : 'Cadastrar Cliente')}
             </Button>
           </form>

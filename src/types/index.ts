@@ -9,6 +9,7 @@ export interface Client {
   phone: string;
   budgetIds: string[]; // Will be initialized as empty array
   createdAt: string; // ISO Date String
+  updatedAt?: string; // ISO Date String
   // userId?: string; // Optional: for multi-user apps
 }
 
@@ -22,6 +23,7 @@ export interface Product {
   costPrice: number; // Internal
   category: ProductCategory;
   createdAt: string;
+  updatedAt?: string; // ISO Date String
   // userId?: string; 
 }
 
@@ -86,3 +88,4 @@ export interface FixedCost {
   createdAt: string;
   // userId?: string;
 }
+
