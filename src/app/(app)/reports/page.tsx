@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, FileDown } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { MOCK_BUDGETS, MOCK_CLIENTS, MOCK_PRODUCTS } from '@/lib/mock-data';
@@ -24,12 +25,11 @@ export default function ReportsPage() {
   const [clientFilter, setClientFilter] = useState<string | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<ProductCategory | 'all'>('all'); // For product-based reports
 
-  const [reportData, setReportData] = useState<Budget[]>([]); // Inicializa como array vazio
+  const [reportData, setReportData] = useState<Budget[]>([]); 
   const [clients, setClients] = useState<Client[]>([]);
 
   useEffect(() => {
     setClients(MOCK_CLIENTS);
-    // Não inicializa reportData aqui, será feito pelo handleGenerateReport
   }, []);
 
   const filteredReportData = useMemo(() => {
@@ -40,15 +40,17 @@ export default function ReportsPage() {
       const matchesStatus = statusFilter === 'all' || budget.status === statusFilter;
       const matchesClient = clientFilter === 'all' || budget.clientId === clientFilter;
       
-      // A lógica de filtro de categoria está comentada, então não é aplicada.
-      // const matchesCategory = categoryFilter === 'all' || budget.items.some(item => MOCK_PRODUCTS.find(p => p.id === item.productId)?.category === categoryFilter);
-
       return matchesDate && matchesStatus && matchesClient;
     });
-  }, [dateRange, statusFilter, clientFilter]); // Removido categoryFilter das dependências pois não é usado na lógica ativa
+  }, [dateRange, statusFilter, clientFilter]); 
   
   const handleGenerateReport = () => {
     setReportData(filteredReportData);
+  };
+
+  const handleGeneratePdf = () => {
+    console.log("Gerar PDF para os relatórios:", reportData);
+    // Aqui viria a lógica de geração de PDF
   };
 
   return (
@@ -139,8 +141,11 @@ export default function ReportsPage() {
                </Select>
             </div> */}
           </div>
-          <div className="flex justify-end">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
             <Button onClick={handleGenerateReport}>Gerar Relatório</Button>
+            <Button variant="outline" onClick={handleGeneratePdf} disabled={reportData.length === 0}>
+              <FileDown className="mr-2 h-4 w-4" /> Gerar PDF
+            </Button>
           </div>
         </CardContent>
       </Card>
