@@ -116,7 +116,7 @@ export function BudgetList() {
     doc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 8;
 
-    // Detalhes do Cliente (mantém como estava)
+    // Detalhes do Cliente
     doc.setFontSize(8);
     const fieldHeight = 5;
     const col1X = margin;
@@ -208,10 +208,13 @@ export function BudgetList() {
 
     currentY = (doc as any).lastAutoTable.finalY + 5;
 
+    const subtotalItems = budget.items.reduce((sum, item) => sum + item.totalPrice, 0);
+
     const totalsData = [
-      { label: "VALOR TOTAL", value: budget.totalAmount },
-      { label: "DESCONTO", value: 0 }, { label: "IMPOSTOS", value: 0 },
-      { label: "TRANSPORTE", value: 0 },
+      { label: "VALOR TOTAL", value: subtotalItems },
+      { label: "DESCONTO", value: budget.appliedDiscountAmount || 0 }, 
+      { label: "IMPOSTOS", value: budget.taxAmount || 0 },
+      { label: "TRANSPORTE", value: budget.shippingCost || 0 },
       { label: "VALOR FINAL", value: budget.totalAmount, isFinal: true }
     ];
     const totalRowHeight = 10; const totalLabelColumnWidth = 50; const totalValueColumnWidth = 40; const textPadding = 2;
