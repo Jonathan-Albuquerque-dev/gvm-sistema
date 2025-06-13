@@ -59,6 +59,10 @@
     --status-success-foreground: 145 58% 35%; /* Darker Green e.g. hsl(145, 58%, 35%) */
     --status-warning-background: 38 92% 90%; /* Light Orange e.g. hsl(38, 92%, 90%) */
     --status-warning-foreground: 35 85% 48%; /* Darker Orange e.g. hsl(35, 85%, 48%) */
+    --status-danger-background: 0 80% 92%; /* Light Red */
+    --status-danger-foreground: 0 60% 50%; /* Darker Red */
+    --status-purple-background: 260 70% 92%; /* Light Purple */
+    --status-purple-foreground: 260 50% 55%; /* Darker Purple */
   }
 
   .dark {
@@ -115,6 +119,10 @@
     --status-success-foreground: 145 55% 70%; 
     --status-warning-background: 38 50% 25%; 
     --status-warning-foreground: 35 80% 75%;
+    --status-danger-background: 0 50% 28%; 
+    --status-danger-foreground: 0 70% 78%; 
+    --status-purple-background: 260 40% 30%;
+    --status-purple-foreground: 260 60% 80%;
   }
 }
 
