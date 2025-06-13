@@ -38,13 +38,18 @@ export const MOCK_SALES_DATA: SalesData[] = [
 //   { id: 'emp-3', name: 'Roberto Lima', position: 'Marceneiro Pleno', admissionDate: new Date(2021, 8, 1).toISOString(), createdAt: new Date(2021, 8, 1).toISOString() },
 // ];
 
+/*
+// MOCK_VARIABLE_COSTS agora será buscado do Firebase
 export const MOCK_VARIABLE_COSTS: VariableCost[] = [
   { id: 'cost-1', description: 'Almoço equipe Carlos', amount: 75.50, date: threeDaysAgo.toISOString(), employeeId: 'emp-1', employeeName: 'Carlos Pereira', category: 'food', createdAt: threeDaysAgo.toISOString()},
   { id: 'cost-2', description: 'Vale transporte Ana', amount: 180.00, date: oneMonthAgo.toISOString(), employeeId: 'emp-2', employeeName: 'Ana Souza', category: 'transport', createdAt: oneMonthAgo.toISOString()},
   { id: 'cost-3', description: 'Compra de parafusos e buchas', amount: 45.20, date: tenDaysAgo.toISOString(), category: 'office_supplies', createdAt: tenDaysAgo.toISOString()},
   { id: 'cost-4', description: 'Gasolina para visita técnica', amount: 60.00, date: new Date(new Date().setDate(today.getDate() - 5)).toISOString(), employeeId: 'emp-1', employeeName: 'Carlos Pereira', category: 'transport', createdAt: new Date(new Date().setDate(today.getDate() - 5)).toISOString()},
 ];
+*/
 
+/*
+// MOCK_FIXED_COSTS agora será buscado do Firebase
 export const MOCK_FIXED_COSTS: FixedCost[] = [
   { id: 'fixed-1', description: 'Aluguel do Escritório', amount: 1200.00, category: 'rent', createdAt: oneMonthAgo.toISOString()},
   { id: 'fixed-2', description: 'Salário Carlos Pereira', amount: 3500.00, category: 'salary', createdAt: oneMonthAgo.toISOString()},
@@ -52,3 +57,6 @@ export const MOCK_FIXED_COSTS: FixedCost[] = [
   { id: 'fixed-4', description: 'Conta de Luz Escritório', amount: 150.00, category: 'utilities', createdAt: oneMonthAgo.toISOString()},
   { id: 'fixed-5', description: 'Internet Escritório', amount: 99.00, category: 'utilities', createdAt: oneMonthAgo.toISOString()},
 ];
+*/
+
+    

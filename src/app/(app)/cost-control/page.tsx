@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DollarSign, Calculator, TrendingUp, Percent, Landmark, ShoppingCart, PlusCircle, HandCoins, ReceiptText, Loader2 } from 'lucide-react';
-import { MOCK_VARIABLE_COSTS, MOCK_FIXED_COSTS } from '@/lib/mock-data';
+// MOCK_VARIABLE_COSTS e MOCK_FIXED_COSTS serão removidos como import direto
 import type { Budget, VariableCost, FixedCost, CostCategory } from '@/types';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 const categoryTranslations: Record<CostCategory, string> = {
@@ -30,6 +30,10 @@ const categoryTranslations: Record<CostCategory, string> = {
 export default function CostControlPage() {
   const [approvedBudgets, setApprovedBudgets] = useState<Budget[]>([]);
   const [isLoadingBudgets, setIsLoadingBudgets] = useState(true);
+  const [fixedCosts, setFixedCosts] = useState<FixedCost[]>([]);
+  const [isLoadingFixedCosts, setIsLoadingFixedCosts] = useState(true);
+  const [variableCosts, setVariableCosts] = useState<VariableCost[]>([]);
+  const [isLoadingVariableCosts, setIsLoadingVariableCosts] = useState(true);
   const { toast } = useToast();
 
   const [receitaTotal, setReceitaTotal] = useState(0);
@@ -41,14 +45,10 @@ export default function CostControlPage() {
   const [margemMedia, setMargemMedia] = useState(0);
   const [approvedBudgetsCount, setApprovedBudgetsCount] = useState(0);
 
-  const [variableCosts, setVariableCosts] = useState<VariableCost[]>([]);
-  const [fixedCosts, setFixedCosts] = useState<FixedCost[]>([]);
-
   useEffect(() => {
     setIsLoadingBudgets(true);
     const budgetsQuery = query(collection(db, 'budgets'), where('status', '==', 'approved'));
-
-    const unsubscribe = onSnapshot(budgetsQuery, (querySnapshot) => {
+    const unsubscribeBudgets = onSnapshot(budgetsQuery, (querySnapshot) => {
       const fetchedBudgets: Budget[] = [];
       querySnapshot.forEach((doc) => {
         fetchedBudgets.push({ id: doc.id, ...doc.data() } as Budget);
@@ -57,15 +57,45 @@ export default function CostControlPage() {
       setIsLoadingBudgets(false);
     }, (error) => {
       console.error("Erro ao buscar orçamentos aprovados:", error);
-      toast({
-        title: "Erro ao carregar dados",
-        description: "Não foi possível buscar os orçamentos aprovados.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro ao carregar orçamentos", description: "Não foi possível buscar os orçamentos aprovados.", variant: "destructive" });
       setIsLoadingBudgets(false);
     });
 
-    return () => unsubscribe();
+    setIsLoadingFixedCosts(true);
+    const fixedCostsQuery = query(collection(db, 'fixedCosts'), orderBy('createdAt', 'desc'));
+    const unsubscribeFixedCosts = onSnapshot(fixedCostsQuery, (querySnapshot) => {
+        const fetchedFixedCosts: FixedCost[] = [];
+        querySnapshot.forEach((doc) => {
+            fetchedFixedCosts.push({ id: doc.id, ...doc.data()} as FixedCost);
+        });
+        setFixedCosts(fetchedFixedCosts);
+        setIsLoadingFixedCosts(false);
+    }, (error) => {
+        console.error("Erro ao buscar custos fixos:", error);
+        toast({ title: "Erro ao carregar custos fixos", description: "Não foi possível buscar os custos fixos.", variant: "destructive"});
+        setIsLoadingFixedCosts(false);
+    });
+
+    setIsLoadingVariableCosts(true);
+    const variableCostsQuery = query(collection(db, 'variableCosts'), orderBy('date', 'desc'));
+    const unsubscribeVariableCosts = onSnapshot(variableCostsQuery, (querySnapshot) => {
+        const fetchedVariableCosts: VariableCost[] = [];
+        querySnapshot.forEach((doc) => {
+            fetchedVariableCosts.push({ id: doc.id, ...doc.data()} as VariableCost);
+        });
+        setVariableCosts(fetchedVariableCosts);
+        setIsLoadingVariableCosts(false);
+    }, (error) => {
+        console.error("Erro ao buscar custos variáveis:", error);
+        toast({ title: "Erro ao carregar custos variáveis", description: "Não foi possível buscar os custos variáveis.", variant: "destructive"});
+        setIsLoadingVariableCosts(false);
+    });
+
+    return () => {
+      unsubscribeBudgets();
+      unsubscribeFixedCosts();
+      unsubscribeVariableCosts();
+    };
   }, [toast]);
 
   useEffect(() => {
@@ -78,13 +108,11 @@ export default function CostControlPage() {
     const currentCustoMaterialTotal = approvedBudgets.reduce((sum, b) => sum + b.materialCostInternal, 0);
     setCustoMaterialTotal(currentCustoMaterialTotal);
     
-    const currentCustosVariaveisTotal = MOCK_VARIABLE_COSTS.reduce((sum, vc) => sum + vc.amount, 0);
+    const currentCustosVariaveisTotal = variableCosts.reduce((sum, vc) => sum + vc.amount, 0);
     setCustosVariaveisTotal(currentCustosVariaveisTotal);
-    setVariableCosts(MOCK_VARIABLE_COSTS);
 
-    const currentCustosFixosTotal = MOCK_FIXED_COSTS.reduce((sum, fc) => sum + fc.amount, 0);
+    const currentCustosFixosTotal = fixedCosts.reduce((sum, fc) => sum + fc.amount, 0);
     setCustosFixosTotal(currentCustosFixosTotal);
-    setFixedCosts(MOCK_FIXED_COSTS);
 
     const currentCustoTotal = currentCustoMaterialTotal + currentCustosVariaveisTotal + currentCustosFixosTotal;
     setCustoTotal(currentCustoTotal);
@@ -95,7 +123,7 @@ export default function CostControlPage() {
     const currentMargemMedia = currentReceitaTotal > 0 ? (currentLucroTotal / currentReceitaTotal) * 100 : 0;
     setMargemMedia(currentMargemMedia);
 
-  }, [approvedBudgets]);
+  }, [approvedBudgets, fixedCosts, variableCosts]);
 
   const formatCurrency = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const formatPercent = (value: number) => `${value.toFixed(1)}%`;
@@ -111,7 +139,7 @@ export default function CostControlPage() {
   const percentCustosFixos = custoTotal > 0 ? (custosFixosTotal / custoTotal) * 100 : 0;
   const custoMedioPorProjeto = approvedBudgetsCount > 0 ? custoTotal / approvedBudgetsCount : 0;
 
-  if (isLoadingBudgets) {
+  if (isLoadingBudgets || isLoadingFixedCosts || isLoadingVariableCosts) {
     return (
       <>
         <PageHeader title="Controle de Custos" description="Análise de margem, rentabilidade e despesas." />
@@ -188,12 +216,14 @@ export default function CostControlPage() {
                 <Landmark className="h-5 w-5 text-primary" />
                 <CardTitle>Gastos Fixos Mensais</CardTitle>
             </div>
-            <Button variant="outline" size="sm" onClick={() => console.log("Adicionar Gasto Fixo")}>
+            <Button variant="outline" size="sm" onClick={() => console.log("Adicionar Gasto Fixo (Placeholder)")}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Adicionar
             </Button>
           </CardHeader>
           <CardContent>
-            {fixedCosts.length > 0 ? (
+            {isLoadingFixedCosts ? (
+                <div className="flex items-center justify-center p-4"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Carregando...</div>
+            ) : fixedCosts.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -212,7 +242,7 @@ export default function CostControlPage() {
                   ))}
                 </TableBody>
               </Table>
-            ) : <p className="text-muted-foreground">Nenhum gasto fixo cadastrado.</p>}
+            ) : <p className="text-muted-foreground text-center py-4">Nenhum gasto fixo cadastrado.</p>}
              <div className="font-semibold text-right mt-4 border-t pt-2">
                 Total Fixo: {formatCurrency(custosFixosTotal)}
             </div>
@@ -225,12 +255,14 @@ export default function CostControlPage() {
                 <HandCoins className="h-5 w-5 text-primary" />
                 <CardTitle>Gastos Variáveis Lançados</CardTitle>
             </div>
-            <Button variant="outline" size="sm" onClick={() => console.log("Adicionar Gasto Variável")}>
+            <Button variant="outline" size="sm" onClick={() => console.log("Adicionar Gasto Variável (Placeholder)")}>
                  <PlusCircle className="mr-2 h-4 w-4" /> Adicionar
             </Button>
           </CardHeader>
           <CardContent>
-            {variableCosts.length > 0 ? (
+            {isLoadingVariableCosts ? (
+                 <div className="flex items-center justify-center p-4"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Carregando...</div>
+            ) : variableCosts.length > 0 ? (
             <Table>
                 <TableHeader>
                   <TableRow>
@@ -251,7 +283,7 @@ export default function CostControlPage() {
                   ))}
                 </TableBody>
               </Table>
-            ) : <p className="text-muted-foreground">Nenhum gasto variável lançado.</p>}
+            ) : <p className="text-muted-foreground text-center py-4">Nenhum gasto variável lançado.</p>}
             <div className="font-semibold text-right mt-4 border-t pt-2">
                 Total Variável: {formatCurrency(custosVariaveisTotal)}
             </div>
@@ -305,10 +337,12 @@ export default function CostControlPage() {
                     <p className="text-sm font-semibold">{formatCurrency(custoMedioPorProjeto)}</p>
                 </div>
              </div>
-             <p className="text-xs text-muted-foreground pt-2">Nota: "Custos de Mão de Obra" estão agora refletidos principalmente nos "Custos Fixos" (salários) e parcialmente nos "Custos Variáveis" (despesas de funcionários). A análise de custo por projeto pode ser mais detalhada ao rastrear horas/custos de mão de obra por projeto.</p>
+             <p className="text-xs text-muted-foreground pt-2">Nota: "Custos de Mão de Obra" podem estar refletidos principalmente nos "Custos Fixos" (salários) e parcialmente nos "Custos Variáveis" (despesas de funcionários). A análise de custo por projeto pode ser mais detalhada ao rastrear horas/custos de mão de obra por projeto.</p>
           </CardContent>
         </Card>
       </div>
     </>
   );
 }
+
+    
