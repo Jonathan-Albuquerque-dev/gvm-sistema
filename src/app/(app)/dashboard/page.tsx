@@ -5,21 +5,21 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/page-header';
-import { DollarSign, FileText, CheckCircle2, Clock3, PlusCircle, UserCircle, ArrowRight } from 'lucide-react'; // Clock3 and UserCircle added
+import { DollarSign, FileText, CheckCircle2, Clock3, PlusCircle, ArrowRight } from 'lucide-react'; 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { MOCK_BUDGETS, MOCK_SALES_DATA } from '@/lib/mock-data';
 import { useEffect, useState } from 'react';
 import type { SalesData, Budget } from '@/types';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // Added Avatar
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Added Select
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'; 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; 
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 const chartConfig = {
   totalSales: {
     label: "Vendas",
-    color: "hsl(var(--primary))", // Keep using theme color for chart
+    color: "hsl(var(--primary))", 
   },
 } satisfies ChartConfig;
 
@@ -66,15 +66,7 @@ export default function DashboardPage() {
               <PlusCircle className="mr-2 h-4 w-4" /> Novo Orçamento
             </Button>
           </Link>
-          <div className="flex items-center gap-2">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src="https://placehold.co/40x40.png" alt="João Silva" data-ai-hint="user avatar" />
-              <AvatarFallback>
-                <UserCircle className="h-5 w-5" />
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-sm font-medium">João Silva</span>
-          </div>
+          {/* Removido avatar e nome do usuário daqui */}
         </div>
       </PageHeader>
 
@@ -175,7 +167,7 @@ export default function DashboardPage() {
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle>Orçamentos Recentes</CardTitle>
-            <Link href="/budgets" passHref>
+            <Link href="/budgets">
               <Button variant="link" className="text-xs h-auto p-0">
                 Ver todos <ArrowRight className="ml-1 h-3 w-3" />
               </Button>
@@ -227,4 +219,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
