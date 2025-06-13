@@ -13,19 +13,20 @@ import {
 } from '@/components/ui/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, FileText, Package, Users, BarChartBig, Calculator, Building } from 'lucide-react'; // Updated icons
+import { LayoutDashboard, FileText, Package, Users, BarChartBig, Calculator, Building } from 'lucide-react';
 
 interface AppLayoutProps {
   children: ReactNode;
 }
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }, // Icon updated
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/budgets', label: 'Orçamentos', icon: FileText },
   { href: '/products', label: 'Produtos', icon: Package },
   { href: '/clients', label: 'Clientes', icon: Users },
-  { href: '/reports', label: 'Relatórios', icon: BarChartBig }, // Icon updated
-  { href: '/cost-control', label: 'Controle de Custos', icon: Calculator }, // New item
+  { href: '/employees', label: 'Funcionários', icon: Users }, // Novo item
+  { href: '/reports', label: 'Relatórios', icon: BarChartBig },
+  { href: '/cost-control', label: 'Controle de Custos', icon: Calculator },
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {

@@ -38,7 +38,6 @@ export interface Budget {
   clientName: string; // Denormalized for display
   clientId: string;
   items: BudgetItem[];
-  // laborCost: number; // Removido
   materialCostInternal: number;
   totalAmount: number;
   status: BudgetStatus;
@@ -50,4 +49,27 @@ export interface Budget {
 export interface SalesData {
   month: string;
   totalSales: number;
+}
+
+// New types for Employees and Variable Costs
+export interface Employee {
+  id: string;
+  name: string;
+  position: string; // Cargo
+  admissionDate: string; // Data de Admissão
+  createdAt: string;
+  // Future: contact (email, phone), salary, etc.
+}
+
+export type CostCategory = 'food' | 'transport' | 'benefits' | 'office_supplies' | 'other';
+
+export interface VariableCost {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  employeeId?: string; // Optional: link to an employee
+  employeeName?: string; // Denormalized for display
+  category: CostCategory | string; // Allow predefined or custom categories
+  createdAt: string;
 }
