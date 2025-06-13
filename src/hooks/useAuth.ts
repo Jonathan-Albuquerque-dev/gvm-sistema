@@ -4,8 +4,7 @@
 import { useEffect, useState, createContext, useContext, ReactNode } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { useRouter }
-from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
   user: User | null;
@@ -27,8 +26,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  const authProviderValue: AuthContextType = {
+    user: user,
+    loading: loading,
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={authProviderValue}>
       {children}
     </AuthContext.Provider>
   );
