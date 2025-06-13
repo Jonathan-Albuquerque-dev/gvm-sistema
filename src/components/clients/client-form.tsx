@@ -10,9 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { Client } from '@/types';
-import { db } from '@/lib/firebase'; 
+import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Changed this line
 import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
@@ -46,7 +46,7 @@ export function ClientForm({ client, onSubmitSuccess }: ClientFormProps) {
   });
 
   // Effect to reset form when client prop changes (e.g., after fetching data for edit)
-  React.useEffect(() => {
+  useEffect(() => { // Changed this line
     if (client) {
       form.reset(client);
     } else {
