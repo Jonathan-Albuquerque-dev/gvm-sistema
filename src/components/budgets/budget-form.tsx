@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription as CardDescriptionComponent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Removido CardDescriptionComponent pois não estava sendo usado
 import { useToast } from '@/hooks/use-toast';
 import type { Budget, BudgetStatus, Client, Product, BudgetItem } from '@/types';
 import { MOCK_CLIENTS, MOCK_PRODUCTS } from '@/lib/mock-data';
@@ -24,7 +25,7 @@ const budgetItemSchema = z.object({
 const formSchema = z.object({
   clientId: z.string().min(1, { message: 'Selecione um cliente.' }),
   items: z.array(budgetItemSchema).min(1, "Adicione pelo menos um item ao orçamento."),
-  laborCost: z.coerce.number().min(0, { message: 'Custo da mão de obra não pode ser negativo.' }),
+  // laborCost: z.coerce.number().min(0, { message: 'Custo da mão de obra não pode ser negativo.' }), // Removido
   status: z.enum(['draft', 'sent', 'approved', 'rejected'] as [BudgetStatus, ...BudgetStatus[]], { required_error: 'Selecione um status.' }),
 });
 
@@ -48,12 +49,12 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
     defaultValues: budget ? {
       clientId: budget.clientId,
       items: budget.items.map(item => ({ ...item, unitPrice: item.unitPrice, productName: item.productName })),
-      laborCost: budget.laborCost,
+      // laborCost: budget.laborCost, // Removido
       status: budget.status,
     } : {
       clientId: '',
       items: [],
-      laborCost: 0,
+      // laborCost: 0, // Removido
       status: 'draft',
     },
   });
@@ -83,8 +84,8 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
 
   useEffect(() => {
     const { itemsTotal, materialCostInternal } = calculateTotals();
-    const labor = form.getValues('laborCost') || 0;
-    setTotalAmount(itemsTotal + labor);
+    // const labor = form.getValues('laborCost') || 0; // Removido
+    setTotalAmount(itemsTotal); // Atualizado: totalAmount agora é apenas itemsTotal
     setMaterialCost(materialCostInternal);
   }, [selectedProducts, products, form, calculateTotals]);
 
@@ -92,7 +93,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
   function onSubmit(values: z.infer<typeof formSchema>) {
     const clientName = clients.find(c => c.id === values.clientId)?.name || 'Cliente Desconhecido';
     const budgetToSave: Omit<Budget, 'id' | 'createdAt' | 'updatedAt' | 'totalAmount' | 'materialCostInternal' | 'clientName'> & Partial<Pick<Budget, 'id'>> = {
-      ...values,
+      clientId: values.clientId,
       items: values.items.map(item => {
           const product = products.find(p => p.id === item.productId);
           return {
@@ -102,9 +103,10 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
               totalPrice: (product?.salePrice || 0) * item.quantity
           };
       }),
+      status: values.status,
+      // laborCost: values.laborCost, // Removido
     };
     
-    // In a real app, totalAmount and materialCostInternal would be calculated server-side or more robustly.
     console.log({ ...budgetToSave, totalAmount, materialCostInternal, clientName });
     
     toast({
@@ -115,7 +117,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
       onSubmitSuccess();
     }
      if (!budget) { // Reset form if creating new
-        form.reset({ clientId: '', items: [], laborCost: 0, status: 'draft' });
+        form.reset({ clientId: '', items: [], status: 'draft' }); // Removido laborCost do reset
     }
   }
 
@@ -247,26 +249,8 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
               </CardContent>
             </Card>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="laborCost"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Custo da Mão de Obra (R$)*</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" placeholder="Ex: 350.00" {...field} 
-                        onChange={e => {
-                            field.onChange(e);
-                            const { itemsTotal } = calculateTotals();
-                            setTotalAmount(itemsTotal + parseFloat(e.target.value || '0'));
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-6"> {/* Alterado para grid-cols-1 */}
+              {/* Campo de Custo da Mão de Obra Removido */}
                <div>
                   <FormLabel>Custo dos Materiais (Interno)</FormLabel>
                   <Input value={materialCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} readOnly disabled className="mt-2 bg-muted" />
@@ -292,5 +276,3 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
     </Card>
   );
 }
-
-    

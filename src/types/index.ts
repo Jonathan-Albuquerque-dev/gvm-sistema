@@ -1,3 +1,4 @@
+
 export interface Client {
   id: string;
   name: string;
@@ -37,7 +38,7 @@ export interface Budget {
   clientName: string; // Denormalized for display
   clientId: string;
   items: BudgetItem[];
-  laborCost: number;
+  // laborCost: number; // Removido
   materialCostInternal: number;
   totalAmount: number;
   status: BudgetStatus;

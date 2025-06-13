@@ -1,3 +1,4 @@
+
 import type { Client, Product, Budget, BudgetStatus, ProductCategory, SalesData } from '@/types';
 
 const today = new Date();
@@ -25,9 +26,9 @@ export const MOCK_BUDGETS: Budget[] = [
       { productId: 'prod-1', productName: 'Disjuntor Bipolar 40A', quantity: 2, unitPrice: 45.90, totalPrice: 91.80 },
       { productId: 'prod-4', productName: 'Luminária LED Sobrepor 18W', quantity: 5, unitPrice: 35.50, totalPrice: 177.50 },
     ],
-    laborCost: 250.00,
-    materialCostInternal: (2 * 22.50) + (5 * 18.00),
-    totalAmount: 91.80 + 177.50 + 250.00,
+    // laborCost: 250.00, // Removido
+    materialCostInternal: (2 * 22.50) + (5 * 18.00), // 45 + 90 = 135.00
+    totalAmount: 91.80 + 177.50, // 269.30
     status: 'approved',
     createdAt: oneMonthAgo.toISOString(),
     updatedAt: oneMonthAgo.toISOString(),
@@ -39,9 +40,9 @@ export const MOCK_BUDGETS: Budget[] = [
     items: [
       { productId: 'prod-2', productName: 'Tubo PVC Esgoto 100mm', quantity: 3, unitPrice: 89.00, totalPrice: 267.00 },
     ],
-    laborCost: 400.00,
-    materialCostInternal: 3 * 45.00,
-    totalAmount: 267.00 + 400.00,
+    // laborCost: 400.00, // Removido
+    materialCostInternal: 3 * 45.00, // 135.00
+    totalAmount: 267.00,
     status: 'sent',
     createdAt: twoMonthsAgo.toISOString(),
     updatedAt: twoMonthsAgo.toISOString(),
@@ -53,9 +54,9 @@ export const MOCK_BUDGETS: Budget[] = [
     items: [
       { productId: 'prod-3', productName: 'MDF Branco 18mm', quantity: 1, unitPrice: 250.00, totalPrice: 250.00 },
     ],
-    laborCost: 150.00,
-    materialCostInternal: 1 * 150.00,
-    totalAmount: 250.00 + 150.00,
+    // laborCost: 150.00, // Removido
+    materialCostInternal: 1 * 150.00, // 150.00
+    totalAmount: 250.00,
     status: 'draft',
     createdAt: today.toISOString(),
     updatedAt: today.toISOString(),
@@ -68,5 +69,5 @@ export const MOCK_SALES_DATA: SalesData[] = [
   { month: 'Mar', totalSales: 1500 },
   { month: 'Abr', totalSales: 2800 },
   { month: 'Mai', totalSales: 1300 },
-  { month: 'Jun', totalSales: MOCK_BUDGETS.filter(b => b.status === 'approved').reduce((sum, b) => sum + b.totalAmount, 0) }, // Example for current month
+  { month: 'Jun', totalSales: MOCK_BUDGETS.filter(b => b.status === 'approved').reduce((sum, b) => sum + b.totalAmount, 0) }, // Updated to reflect new totalAmount for budget-1 (269.30)
 ];

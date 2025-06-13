@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -25,10 +26,8 @@ export function ReportView({ data, title, description }: ReportViewProps) {
     );
   }
 
-  // This is a very basic example. Actual reports would have specific columns and calculations.
-  // For MVP, we'll show basic budget data.
   const totalSold = data.filter(b => b.status === 'approved').reduce((sum, item) => sum + item.totalAmount, 0);
-  const estimatedProfit = data.filter(b => b.status === 'approved').reduce((sum, item) => sum + (item.totalAmount - item.materialCostInternal - item.laborCost), 0);
+  const estimatedProfit = data.filter(b => b.status === 'approved').reduce((sum, item) => sum + (item.totalAmount - item.materialCostInternal), 0); // Removido item.laborCost
 
 
   return (
@@ -57,7 +56,7 @@ export function ReportView({ data, title, description }: ReportViewProps) {
                     <div className="text-2xl font-bold">
                         {estimatedProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </div>
-                     <p className="text-xs text-muted-foreground">(Total Aprovado - Custos Materiais - Mão de Obra)</p>
+                     <p className="text-xs text-muted-foreground">(Total Aprovado - Custos Materiais)</p> {/* Atualizada descrição */}
                 </CardContent>
             </Card>
         </div>
@@ -81,7 +80,7 @@ export function ReportView({ data, title, description }: ReportViewProps) {
                 <TableCell>{item.status}</TableCell>
                 <TableCell>{item.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
                 <TableCell className="hidden md:table-cell">{item.materialCostInternal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
-                <TableCell className="hidden md:table-cell">{(item.totalAmount - item.materialCostInternal - item.laborCost).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
+                <TableCell className="hidden md:table-cell">{(item.totalAmount - item.materialCostInternal).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell> {/* Removido item.laborCost */}
               </TableRow>
             ))}
           </TableBody>
