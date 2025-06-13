@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { Budget, BudgetStatus, Client, Product, BudgetItem } from '@/types';
-import { MOCK_CLIENTS, MOCK_PRODUCTS } from '@/lib/mock-data';
+import { MOCK_PRODUCTS } from '@/lib/mock-data'; // MOCK_CLIENTS removed
 import { useEffect, useState, useCallback } from 'react';
 import { PlusCircle, Trash2, FileDown } from 'lucide-react';
 
@@ -37,11 +37,11 @@ interface BudgetFormProps {
 
 export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
   const { toast } = useToast();
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<Client[]>([]); // Will be empty until Firebase fetch is implemented
   const [products, setProducts] = useState<Product[]>([]);
   
   useEffect(() => {
-    setClients(MOCK_CLIENTS);
+    // setClients(MOCK_CLIENTS); // Removed, clients will come from Firebase
     setProducts(MOCK_PRODUCTS);
   }, []);
 
@@ -150,6 +150,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                         {clients.map(client => (
                           <SelectItem key={client.id} value={client.id}>{client.name} ({client.companyName || client.document})</SelectItem>
                         ))}
+                        {clients.length === 0 && <p className="p-2 text-sm text-muted-foreground">Nenhum cliente disponível.</p>}
                       </SelectContent>
                     </Select>
                     <FormMessage />
