@@ -61,7 +61,7 @@ export default function ProductsPage() {
     let currentY = 22;
 
     doc.setFontSize(18);
-    doc.text('Lista de Produtos Cadastrados', margin, currentY);
+    doc.text('Tabela de Vendas', margin, currentY); // Título alterado aqui
     currentY += 8;
     doc.setFontSize(11);
     doc.setTextColor(100);
@@ -86,21 +86,21 @@ export default function ProductsPage() {
       head: [tableColumn],
       body: tableRows,
       startY: currentY,
-      headStyles: { fillColor: [22, 160, 133] }, // Cor verde para cabeçalho
+      headStyles: { fillColor: [22, 160, 133] }, 
       columnStyles: {
-        0: { cellWidth: 40 }, // Nome
-        1: { cellWidth: 'auto' }, // Descrição
-        2: { cellWidth: 25 }, // Categoria
-        3: { cellWidth: 30, halign: 'right' }, // Preço Venda
-        4: { cellWidth: 30, halign: 'right' }, // Preço Custo
+        0: { cellWidth: 40 }, 
+        1: { cellWidth: 'auto' }, 
+        2: { cellWidth: 25 }, 
+        3: { cellWidth: 30, halign: 'right' }, 
+        4: { cellWidth: 30, halign: 'right' }, 
       },
       didDrawPage: function (_data) {
         // Placeholder for potential footer content on each page
       }
     });
     
-    doc.save('lista_de_produtos.pdf');
-    toast({ title: 'PDF Gerado', description: 'A lista de produtos foi gerada em PDF.' });
+    doc.save('tabela_de_vendas_produtos.pdf'); // Nome do arquivo atualizado para refletir o título
+    toast({ title: 'PDF Gerado', description: 'A tabela de vendas de produtos foi gerada em PDF.' });
   };
 
 
