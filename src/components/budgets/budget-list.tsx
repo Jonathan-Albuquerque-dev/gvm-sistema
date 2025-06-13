@@ -34,10 +34,13 @@ const statusColors: Record<BudgetStatus, string> = {
   rejected: 'bg-red-500 hover:bg-red-600',
 };
 
+// IMPORTANTE: Substitua esta string pela string Base64 da sua logo.
+// Exemplo de uma pequena logo placeholder transparente (50x20 pixels):
+const COMPANY_LOGO_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAUCAQAAAAAPSRYAAAAHElEQVR42mNkoAAwjmoe1TyqeVTzqOZRzUMCADnECwU06rBMAAAAAElFTkSuQmCC';
+// Para melhores resultados, use uma logo com altura entre 20-40 pixels e largura proporcional.
 
 export function BudgetList() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  // const [products, setProducts] = useState<Product[]>([]); // Product details for PDF are now in budget.items
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<BudgetStatus | 'all'>('all');
@@ -94,28 +97,55 @@ export function BudgetList() {
 
   const handleDownloadPdf = (budget: Budget) => {
     const doc = new jsPDF();
-    // Client details for PDF header are not fetched live in this list. Rely on budget.clientName
-
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 10;
     const contentWidth = pageWidth - margin * 2;
-    let currentY = 20;
+    let currentY = 20; // Ajuste inicial para dar espaço à logo
+
+    const logoWidth = 30; // Largura da logo em mm (ajuste conforme necessário)
+    const logoHeight = 10; // Altura da logo em mm (ajuste conforme necessário)
+    const logoX = margin;
+    const logoY = currentY - 7; // Posiciona a logo um pouco acima da primeira linha de texto
+
+    // Adicionar a logo
+    try {
+        if (COMPANY_LOGO_BASE64 && COMPANY_LOGO_BASE64.startsWith('data:image')) {
+             // Tenta determinar o formato da imagem a partir da string base64
+            const formatMatch = COMPANY_LOGO_BASE64.match(/^data:image\/(png|jpe?g|gif)/);
+            const imageFormat = formatMatch ? formatMatch[1].toUpperCase() : 'PNG'; // Default to PNG
+            doc.addImage(COMPANY_LOGO_BASE64, imageFormat, logoX, logoY, logoWidth, logoHeight);
+        } else {
+            console.warn("Logo não adicionada: COMPANY_LOGO_BASE64 não é uma string base64 de imagem válida.");
+        }
+    } catch (e) {
+        console.error("Erro ao adicionar logo:", e);
+        toast({title: "Erro na Logo", description: "Não foi possível adicionar a logo ao PDF.", variant: "destructive"});
+    }
+
+
+    const textStartX = margin + logoWidth + 5; // Início do texto à direita da logo
+    const availableTextWidth = contentWidth - logoWidth - 5;
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text("GVM", margin, currentY);
+    doc.text("GVM", textStartX, currentY);
     doc.setFont('helvetica', 'normal');
-    doc.text("IND. DE GONDOLAS E CHECKOUTS", margin + 8, currentY);
+    const companyName = "IND. DE GONDOLAS E CHECKOUTS";
+    const gvmWidth = doc.getTextWidth("GVM ");
+    doc.text(companyName, textStartX + gvmWidth, currentY, { maxWidth: availableTextWidth - gvmWidth });
+
 
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text("PEDIDO DE VENDA", pageWidth / 2, currentY, { align: 'center' });
+    // Centraliza "PEDIDO DE VENDA" no espaço restante à direita da logo
+    const pedidoVendaX = textStartX + (availableTextWidth / 2);
+    doc.text("PEDIDO DE VENDA", pedidoVendaX, currentY + 6, { align: 'center', maxWidth: availableTextWidth });
     
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(format(new Date(), 'dd/MM/yyyy', { locale: ptBR }), pageWidth - margin, currentY, { align: 'right' });
 
-    currentY += 6;
+    currentY += 12; // Aumenta o espaço após o cabeçalho com logo
     doc.setLineWidth(0.5);
     doc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 8;
@@ -125,11 +155,8 @@ export function BudgetList() {
     const col1X = margin;
     const col2X = margin + contentWidth / 2.2;
 
-    // Client details for PDF header are minimal here, relying on budget.clientName
     const clientDetails = [
       { label: "CLIENTE:", value: budget.clientName || "N/A" },
-      // Add more fields here if they were stored directly in the budget object
-      // or if you decide to fetch client details specifically for PDF generation.
       { label: "ENDEREÇO:", value: "N/A (Buscar do Cliente)" }, 
       { label: "CNPJ:", value: "N/A (Buscar do Cliente)" },
     ];
@@ -140,31 +167,25 @@ export function BudgetList() {
       { label: "TEL:", value: "N/A (Buscar do Cliente)" },
     ];
 
-
+    let tempY1 = currentY;
     clientDetails.forEach(detail => {
       doc.setFont('helvetica', 'bold');
-      doc.text(detail.label, col1X, currentY);
+      doc.text(detail.label, col1X, tempY1);
       doc.setFont('helvetica', 'normal');
-      doc.text(detail.value, col1X + 25, currentY, {maxWidth: contentWidth / 2.5 - 25});
-      currentY += fieldHeight;
+      doc.text(detail.value, col1X + 25, tempY1, {maxWidth: contentWidth / 2.5 - 25});
+      tempY1 += fieldHeight;
     });
     
-    currentY -= clientDetails.length * fieldHeight; 
-
-    let col2StartY = currentY;
-    if (clientDetailsCol2.length < clientDetails.length) {
-        col2StartY += (clientDetails.length - clientDetailsCol2.length) * fieldHeight / 2;
-    }
-
+    let tempY2 = currentY;
     clientDetailsCol2.forEach(detail => {
       doc.setFont('helvetica', 'bold');
-      doc.text(detail.label, col2X, col2StartY);
+      doc.text(detail.label, col2X, tempY2);
       doc.setFont('helvetica', 'normal');
-      doc.text(detail.value, col2X + 25, col2StartY, {maxWidth: contentWidth / 2 - 30 });
-      col2StartY += fieldHeight;
+      doc.text(detail.value, col2X + 25, tempY2, {maxWidth: contentWidth / 2 - 30 });
+      tempY2 += fieldHeight;
     });
 
-    currentY += Math.max(clientDetails.length, clientDetailsCol2.length) * fieldHeight - fieldHeight; 
+    currentY = Math.max(tempY1, tempY2); 
     currentY += 2; 
     doc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 8;
@@ -184,13 +205,12 @@ export function BudgetList() {
     const tableRows: (string | number)[][] = [];
 
     budget.items.forEach(item => {
-      // Product details (name, unitPrice) are taken directly from budget.items
       const budgetItemData = [
         item.productId.substring(0,8).toUpperCase(),
-        item.productName, // Relies on productName stored in BudgetItem
+        item.productName, 
         item.quantity,
-        item.unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), // Relies on unitPrice stored
-        item.totalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) // Relies on totalPrice stored
+        item.unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+        item.totalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
       ];
       tableRows.push(budgetItemData);
     });
@@ -284,7 +304,7 @@ export function BudgetList() {
             placeholder="Buscar por cliente ou ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="sm:max-w-xs w-full"
+            className="w-full sm:max-w-xs"
         />
         <Select value={statusFilter} onValueChange={(value: BudgetStatus | 'all') => setStatusFilter(value)}>
             <SelectTrigger className="w-full sm:w-[180px]">
@@ -319,7 +339,7 @@ export function BudgetList() {
                   <TableCell className="hidden md:table-cell">{new Date(budget.createdAt).toLocaleDateString('pt-BR')}</TableCell>
                   <TableCell className="text-right">{budget.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
                   <TableCell className="text-center">
-                    <Badge className={`${statusColors[budget.status]} text-white text-xs px-2 py-1`}>{statusLabels[budget.status]}</Badge>
+                    <Badge className={`${statusColors[budget.status]} text-white text-xs px-2 py-0.5`}>{statusLabels[budget.status]}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -362,6 +382,4 @@ export function BudgetList() {
     </div>
   );
 }
-
     
-
