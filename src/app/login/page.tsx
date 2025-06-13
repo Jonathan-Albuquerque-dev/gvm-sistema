@@ -1,23 +1,38 @@
+"use client";
 
-'use client';
-
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Building, LogIn } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import * as z from 'zod';
-import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/use-toast';
-import { auth } from '@/lib/firebase'; // Import Firebase auth
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Building, LogIn } from "lucide-react";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
+import { auth } from "@/lib/firebase"; // Import Firebase auth
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { useState } from "react";
 
 const formSchema = z.object({
-  email: z.string().email({ message: 'Por favor, insira um email válido.' }),
-  password: z.string().min(6, { message: 'A senha deve ter pelo menos 6 caracteres.' }),
+  email: z.string().email({ message: "Por favor, insira um email válido." }),
+  password: z
+    .string()
+    .min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
 });
 
 export default function LoginPage() {
@@ -28,8 +43,8 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: '',
-      password: '',
+      email: "",
+      password: "",
     },
   });
 
@@ -38,20 +53,24 @@ export default function LoginPage() {
     try {
       await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
-        title: 'Login bem-sucedido!',
-        description: 'Redirecionando para o dashboard...',
+        title: "Login bem-sucedido!",
+        description: "Redirecionando para o dashboard...",
       });
-      router.push('/dashboard');
+      router.push("/dashboard");
     } catch (error: any) {
-      console.error('Erro de Login:', error);
-      let errorMessage = 'Ocorreu um erro ao tentar fazer login.';
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        errorMessage = 'Email ou senha inválidos.';
+      console.error("Erro de Login:", error);
+      let errorMessage = "Ocorreu um erro ao tentar fazer login.";
+      if (
+        error.code === "auth/user-not-found" ||
+        error.code === "auth/wrong-password" ||
+        error.code === "auth/invalid-credential"
+      ) {
+        errorMessage = "Email ou senha inválidos.";
       }
       toast({
-        title: 'Erro de Login',
+        title: "Erro de Login",
         description: errorMessage,
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -59,14 +78,16 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-background p-4">
+    <div className="grid min-h-screen place-items-center bg-background p-4 justify-center items-center flex-1">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center items-center gap-2 mb-4">
             <Building className="h-8 w-8 text-primary" />
             <CardTitle className="text-3xl font-bold">GVM</CardTitle>
           </div>
-          <CardDescription>Acesse sua conta para gerenciar seus negócios</CardDescription>
+          <CardDescription>
+            Acesse sua conta para gerenciar seus negócios
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -78,7 +99,12 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="seuemail@exemplo.com" {...field} disabled={isLoading} />
+                      <Input
+                        type="email"
+                        placeholder="seuemail@exemplo.com"
+                        {...field}
+                        disabled={isLoading}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -91,14 +117,25 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Senha</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} />
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                        disabled={isLoading}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Entrando...' : <><LogIn className="mr-2 h-4 w-4" /> Entrar</>}
+                {isLoading ? (
+                  "Entrando..."
+                ) : (
+                  <>
+                    <LogIn className="mr-2 h-4 w-4" /> Entrar
+                  </>
+                )}
               </Button>
             </form>
           </Form>
