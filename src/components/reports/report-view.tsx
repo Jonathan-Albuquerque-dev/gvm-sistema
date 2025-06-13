@@ -27,7 +27,7 @@ export function ReportView({ data, title, description }: ReportViewProps) {
   }
 
   const totalSold = data.filter(b => b.status === 'approved').reduce((sum, item) => sum + item.totalAmount, 0);
-  const estimatedProfit = data.filter(b => b.status === 'approved').reduce((sum, item) => sum + (item.totalAmount - item.materialCostInternal), 0); // Removido item.laborCost
+  const estimatedProfit = data.filter(b => b.status === 'approved').reduce((sum, item) => sum + (item.totalAmount - item.materialCostInternal), 0);
 
 
   return (
@@ -56,7 +56,7 @@ export function ReportView({ data, title, description }: ReportViewProps) {
                     <div className="text-2xl font-bold">
                         {estimatedProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </div>
-                     <p className="text-xs text-muted-foreground">(Total Aprovado - Custos Materiais)</p> {/* Atualizada descrição */}
+                     <p className="text-xs text-muted-foreground">(Total Aprovado - Custos Materiais)</p>
                 </CardContent>
             </Card>
         </div>
@@ -73,16 +73,17 @@ export function ReportView({ data, title, description }: ReportViewProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell className="font-mono text-xs">{item.id.substring(0,8)}...</TableCell>
-                <TableCell>{item.clientName}</TableCell>
-                <TableCell>{item.status}</TableCell>
-                <TableCell>{item.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
-                <TableCell className="hidden md:table-cell">{item.materialCostInternal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
-                <TableCell className="hidden md:table-cell">{(item.totalAmount - item.materialCostInternal).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell> {/* Removido item.laborCost */}
-              </TableRow>
-            ))}
+            {data.map((item) => {
+              const cells = [
+                <TableCell key={`id-${item.id}`} className="font-mono text-xs">{item.id.substring(0,8)}...</TableCell>,
+                <TableCell key={`clientName-${item.id}`}>{item.clientName}</TableCell>,
+                <TableCell key={`status-${item.id}`}>{item.status}</TableCell>,
+                <TableCell key={`totalAmount-${item.id}`}>{item.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>,
+                <TableCell key={`materialCostInternal-${item.id}`} className="hidden md:table-cell">{item.materialCostInternal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>,
+                <TableCell key={`estimatedMargin-${item.id}`} className="hidden md:table-cell">{(item.totalAmount - item.materialCostInternal).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
+              ];
+              return <TableRow key={item.id}>{cells}</TableRow>;
+            })}
           </TableBody>
         </Table>
         </div>
