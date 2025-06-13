@@ -97,24 +97,32 @@ export function BudgetList() {
     const contentWidth = pageWidth - margin * 2;
     let currentY = 20;
 
-    doc.setFontSize(10);
+    // GVM Title
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text("GVM", margin, currentY);
-    doc.setFont('helvetica', 'normal');
-    const companyName = "IND. DE GONDOLAS E CHECKOUTS";
-    const gvmWidth = doc.getTextWidth("GVM ");
-    doc.text(companyName, margin + gvmWidth, currentY, { maxWidth: contentWidth - gvmWidth });
-
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    const pedidoVendaX = margin + (contentWidth / 2);
-    doc.text("PEDIDO DE VENDA", pedidoVendaX, currentY + 6, { align: 'center', maxWidth: contentWidth });
     
+    // Date
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(format(new Date(), 'dd/MM/yyyy', { locale: ptBR }), pageWidth - margin, currentY, { align: 'right' });
 
-    currentY += 12; 
+    currentY += 6;
+
+    // PEDIDO DE VENDA Title
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    const pedidoVendaX = margin + (contentWidth / 2);
+    doc.text("PEDIDO DE VENDA", pedidoVendaX, currentY, { align: 'center', maxWidth: contentWidth });
+    
+    currentY += 5;
+    // Budget ID
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`ID: ${budget.id}`, pedidoVendaX, currentY, { align: 'center', maxWidth: contentWidth });
+
+
+    currentY += 6; 
     doc.setLineWidth(0.5);
     doc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 8;
