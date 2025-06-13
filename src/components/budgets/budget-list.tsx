@@ -34,11 +34,6 @@ const statusColors: Record<BudgetStatus, string> = {
   rejected: 'bg-red-500 hover:bg-red-600',
 };
 
-// IMPORTANTE: Substitua esta string pela string Base64 da sua logo.
-// Exemplo de uma pequena logo placeholder transparente (50x20 pixels):
-const COMPANY_LOGO_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAUCAQAAAAAPSRYAAAAHElEQVR42mNkoAAwjmoe1TyqeVTzqOZRzUMCADnECwU06rBMAAAAAElFTkSuQmCC';
-// Para melhores resultados, use uma logo com altura entre 20-40 pixels e largura proporcional.
-
 export function BudgetList() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -100,52 +95,26 @@ export function BudgetList() {
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 10;
     const contentWidth = pageWidth - margin * 2;
-    let currentY = 20; // Ajuste inicial para dar espaço à logo
-
-    const logoWidth = 30; // Largura da logo em mm (ajuste conforme necessário)
-    const logoHeight = 10; // Altura da logo em mm (ajuste conforme necessário)
-    const logoX = margin;
-    const logoY = currentY - 7; // Posiciona a logo um pouco acima da primeira linha de texto
-
-    // Adicionar a logo
-    try {
-        if (COMPANY_LOGO_BASE64 && COMPANY_LOGO_BASE64.startsWith('data:image')) {
-             // Tenta determinar o formato da imagem a partir da string base64
-            const formatMatch = COMPANY_LOGO_BASE64.match(/^data:image\/(png|jpe?g|gif)/);
-            const imageFormat = formatMatch ? formatMatch[1].toUpperCase() : 'PNG'; // Default to PNG
-            doc.addImage(COMPANY_LOGO_BASE64, imageFormat, logoX, logoY, logoWidth, logoHeight);
-        } else {
-            console.warn("Logo não adicionada: COMPANY_LOGO_BASE64 não é uma string base64 de imagem válida.");
-        }
-    } catch (e) {
-        console.error("Erro ao adicionar logo:", e);
-        toast({title: "Erro na Logo", description: "Não foi possível adicionar a logo ao PDF.", variant: "destructive"});
-    }
-
-
-    const textStartX = margin + logoWidth + 5; // Início do texto à direita da logo
-    const availableTextWidth = contentWidth - logoWidth - 5;
+    let currentY = 20;
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text("GVM", textStartX, currentY);
+    doc.text("GVM", margin, currentY);
     doc.setFont('helvetica', 'normal');
     const companyName = "IND. DE GONDOLAS E CHECKOUTS";
     const gvmWidth = doc.getTextWidth("GVM ");
-    doc.text(companyName, textStartX + gvmWidth, currentY, { maxWidth: availableTextWidth - gvmWidth });
-
+    doc.text(companyName, margin + gvmWidth, currentY, { maxWidth: contentWidth - gvmWidth });
 
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    // Centraliza "PEDIDO DE VENDA" no espaço restante à direita da logo
-    const pedidoVendaX = textStartX + (availableTextWidth / 2);
-    doc.text("PEDIDO DE VENDA", pedidoVendaX, currentY + 6, { align: 'center', maxWidth: availableTextWidth });
+    const pedidoVendaX = margin + (contentWidth / 2);
+    doc.text("PEDIDO DE VENDA", pedidoVendaX, currentY + 6, { align: 'center', maxWidth: contentWidth });
     
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(format(new Date(), 'dd/MM/yyyy', { locale: ptBR }), pageWidth - margin, currentY, { align: 'right' });
 
-    currentY += 12; // Aumenta o espaço após o cabeçalho com logo
+    currentY += 12; 
     doc.setLineWidth(0.5);
     doc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 8;
