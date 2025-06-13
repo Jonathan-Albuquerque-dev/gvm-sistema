@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Edit3, Trash2, MoreVertical, Eye, FileDown, Loader2 } from 'lucide-react';
-import type { Budget, BudgetStatus, Product, Client } from '@/types';
+import type { Budget, BudgetStatus, Client } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +17,7 @@ import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, doc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, doc, deleteDoc, query, orderBy, getDoc } from 'firebase/firestore';
 
 
 const statusLabels: Record<BudgetStatus, string> = {
@@ -90,7 +90,24 @@ export function BudgetList() {
     router.push(`/budgets/${budgetId}`);
   };
 
-  const handleDownloadPdf = (budget: Budget) => {
+  const handleDownloadPdf = async (budget: Budget) => {
+    let clientData: Client | null = null;
+    if (budget.clientId) {
+        try {
+            const clientDocRef = doc(db, 'clients', budget.clientId);
+            const clientDocSnap = await getDoc(clientDocRef);
+            if (clientDocSnap.exists()) {
+                clientData = clientDocSnap.data() as Client;
+            } else {
+                toast({ title: "Cliente não encontrado", description: "Não foi possível encontrar os dados completos do cliente.", variant: "default" });
+            }
+        } catch (error) {
+            console.error("Erro ao buscar dados do cliente para PDF:", error);
+            toast({ title: "Erro ao buscar cliente", description: "Falha ao carregar dados do cliente para o PDF.", variant: "destructive" });
+        }
+    }
+
+
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 10;
@@ -120,18 +137,18 @@ export function BudgetList() {
     doc.setFontSize(8);
     const fieldHeight = 5;
     const col1X = margin;
-    const col2X = margin + contentWidth / 2.2;
+    const col2X = margin + contentWidth / 2.2; // Adjusted for potentially longer labels/values
 
     const clientDetails = [
-      { label: "CLIENTE:", value: budget.clientName || "N/A" },
-      { label: "ENDEREÇO:", value: "N/A (Buscar do Cliente)" }, 
-      { label: "CNPJ:", value: "N/A (Buscar do Cliente)" },
+      { label: "CLIENTE:", value: clientData?.name || budget.clientName || "N/A" },
+      { label: "ENDEREÇO:", value: clientData?.address || "N/A" },
+      { label: "CPF/CNPJ:", value: clientData?.document || "N/A" },
     ];
      const clientDetailsCol2 = [
-      { label: "RAZÃO SOCIAL:", value: "N/A (Buscar do Cliente)" },
-      { label: "IE:", value: "N/A" },
-      { label: "CEP:", value: "N/A" },
-      { label: "TEL:", value: "N/A (Buscar do Cliente)" },
+      { label: "NOME FANTASIA:", value: clientData?.companyName || (clientData?.name !== budget.clientName ? clientData?.name : "N/A") },
+      { label: "TELEFONE:", value: clientData?.phone || "N/A" },
+      { label: "E-MAIL:", value: clientData?.email || "N/A" },
+      { label: "IE:", value: "N/A" }, // IE is not in our Client model
     ];
 
     let tempY1 = currentY;
@@ -139,7 +156,7 @@ export function BudgetList() {
       doc.setFont('helvetica', 'bold');
       doc.text(detail.label, col1X, tempY1);
       doc.setFont('helvetica', 'normal');
-      doc.text(detail.value, col1X + 25, tempY1, {maxWidth: contentWidth / 2.5 - 25});
+      doc.text(detail.value, col1X + (detail.label.length * 1.8 + 2), tempY1, {maxWidth: contentWidth / 2.3 - (detail.label.length * 1.8 + 2) }); // Adjusted value X start & maxWidth
       tempY1 += fieldHeight;
     });
     
@@ -148,7 +165,7 @@ export function BudgetList() {
       doc.setFont('helvetica', 'bold');
       doc.text(detail.label, col2X, tempY2);
       doc.setFont('helvetica', 'normal');
-      doc.text(detail.value, col2X + 25, tempY2, {maxWidth: contentWidth / 2 - 30 });
+      doc.text(detail.value, col2X + (detail.label.length * 1.8 + 2), tempY2, {maxWidth: contentWidth / 2 - (detail.label.length * 1.8 + 7) }); // Adjusted value X start & maxWidth
       tempY2 += fieldHeight;
     });
 
@@ -246,7 +263,7 @@ export function BudgetList() {
     doc.line(margin + 10, signatureY, margin + 70, signatureY); doc.text("Cliente", margin + 40, signatureY + 4, { align: 'center'}); 
     doc.line(pageWidth - margin - 70, signatureY, pageWidth - margin - 10, signatureY); doc.text("Vendedor", pageWidth - margin - 40, signatureY + 4, {align: 'center'}); 
     
-    doc.save(`pedido_venda_${budget.clientName.replace(/\s+/g, '_')}_${budget.id.substring(0,6)}.pdf`);
+    doc.save(`pedido_venda_${(clientData?.name || budget.clientName || 'cliente').replace(/\s+/g, '_')}_${budget.id.substring(0,6)}.pdf`);
     toast({ title: 'PDF Gerado', description: `O PDF para o orçamento ${budget.id.substring(0,8)} foi gerado.` });
   };
   
@@ -356,3 +373,4 @@ export function BudgetList() {
 
 
     
+
