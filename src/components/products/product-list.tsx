@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -5,11 +6,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCap
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { Edit3, Trash2, MoreVertical, Eye } from 'lucide-react';
-import { MOCK_PRODUCTS } from '@/lib/mock-data';
+import { Edit3, Trash2, MoreVertical, Eye, Loader2 } from 'lucide-react';
 import type { Product, ProductCategory } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 const categoryLabels: Record<ProductCategory, string> = {
   electrical: 'Elétrica',
@@ -22,27 +25,69 @@ export function ProductList() {
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<ProductCategory | 'all'>('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Simulate API call
-    setProducts(MOCK_PRODUCTS);
-  }, []);
+    setIsLoading(true);
+    const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const productsData: Product[] = [];
+      querySnapshot.forEach((doc) => {
+        productsData.push({ id: doc.id, ...doc.data() } as Product);
+      });
+      setProducts(productsData);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Erro ao buscar produtos:", error);
+      toast({ title: "Erro ao buscar produtos", description: "Não foi possível carregar a lista de produtos.", variant: "destructive" });
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [toast]);
 
   const handleEdit = (productId: string) => {
-    console.log(`Edit product ${productId}`);
+    toast({ title: 'Funcionalidade em Desenvolvimento', description: `A edição do produto ${productId.substring(0,8)} será implementada.`});
+    // router.push(`/products/edit/${productId}`); // Future implementation
   };
 
-  const handleDelete = (productId: string) => {
-    setProducts(prevProducts => prevProducts.filter(product => product.id !== productId));
-    console.log(`Delete product ${productId}`);
+  const handleDelete = async (productId: string, productName: string) => {
+    if (!window.confirm(`Tem certeza que deseja excluir o produto "${productName}"? Esta ação não pode ser desfeita.`)) {
+        return;
+    }
+    try {
+      await deleteDoc(doc(db, 'products', productId));
+      toast({
+        title: 'Produto Excluído!',
+        description: `O produto "${productName}" foi excluído com sucesso do Firebase.`,
+      });
+    } catch (error) {
+      console.error("Erro ao excluir produto:", error);
+      toast({
+        title: 'Erro ao Excluir',
+        description: `Não foi possível excluir o produto "${productName}". Tente novamente.`,
+        variant: 'destructive',
+      });
+    }
   };
 
   const filteredProducts = products.filter(product => {
     const matchesSearchTerm = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                              product.description.toLowerCase().includes(searchTerm.toLowerCase());
+                              (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
     return matchesSearchTerm && matchesCategory;
   });
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Carregando produtos...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -85,7 +130,7 @@ export function ProductList() {
                     <div className="text-xs text-muted-foreground hidden sm:block truncate max-w-xs">{product.description}</div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    <Badge variant="outline">{categoryLabels[product.category]}</Badge>
+                    <Badge variant="outline">{categoryLabels[product.category] || product.category}</Badge>
                   </TableCell>
                   <TableCell>{product.salePrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
                   <TableCell className="hidden lg:table-cell">{product.costPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
@@ -97,13 +142,13 @@ export function ProductList() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => console.log('View product details', product.id)}>
+                        <DropdownMenuItem onClick={() => toast({title: 'Visualização em Desenvolvimento'})}>
                           <Eye className="mr-2 h-4 w-4" /> Ver Detalhes
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEdit(product.id)}>
                           <Edit3 className="mr-2 h-4 w-4" /> Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(product.id)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
+                        <DropdownMenuItem onClick={() => handleDelete(product.id, product.name)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
                           <Trash2 className="mr-2 h-4 w-4" /> Excluir
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -114,12 +159,12 @@ export function ProductList() {
             ) : (
                <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
-                  Nenhum produto encontrado.
+                  Nenhum produto encontrado. {products.length === 0 && !searchTerm ? "Cadastre o primeiro produto." : ""}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
-           {filteredProducts.length === 0 && (searchTerm || categoryFilter !== 'all') && (
+           {filteredProducts.length === 0 && (products.length > 0 || searchTerm || categoryFilter !== 'all') && (
              <TableCaption>Nenhum produto encontrado para os filtros aplicados.</TableCaption>
            )}
         </Table>

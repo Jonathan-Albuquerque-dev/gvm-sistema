@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,6 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { Product, ProductCategory } from '@/types';
+import { db } from '@/lib/firebase'; // Import Firestore instance
+import { collection, addDoc } from 'firebase/firestore';
+import { useState } from 'react';
 
 const productCategories: ProductCategory[] = ['electrical', 'hydraulic', 'carpentry', 'other'];
 
@@ -23,12 +27,14 @@ const formSchema = z.object({
 });
 
 interface ProductFormProps {
-  product?: Product; // For editing
+  product?: Product; // For editing (not fully implemented with Firestore yet)
   onSubmitSuccess?: () => void;
 }
 
 export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: product || {
@@ -36,21 +42,46 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
       description: '',
       salePrice: 0,
       costPrice: 0,
-      category: undefined, // Will be set by Select
+      category: undefined,
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: product ? 'Produto Atualizado!' : 'Produto Criado!',
-      description: `O produto ${values.name} foi ${product ? 'atualizado' : 'salvo'} com sucesso.`,
-    });
-    if (onSubmitSuccess) {
-      onSubmitSuccess();
-    }
-     if (!product) { // Reset form if creating new
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
+    try {
+      if (product) {
+        // TODO: Implement update logic for Firestore
+        console.log('Update product:', { id: product.id, ...values });
+        toast({
+          title: 'Funcionalidade em Desenvolvimento',
+          description: 'A atualização de produtos no Firebase será implementada em breve.',
+        });
+      } else {
+        const productData = {
+          ...values,
+          description: values.description || '', // Ensure description is not undefined
+          createdAt: new Date().toISOString(),
+          // userId: user?.uid, // Optional: associate product with user
+        };
+        await addDoc(collection(db, 'products'), productData);
+        toast({
+          title: 'Produto Criado!',
+          description: `O produto ${values.name} foi salvo com sucesso no Firebase.`,
+        });
         form.reset({ name: '', description: '', salePrice: 0, costPrice: 0, category: undefined });
+      }
+      if (onSubmitSuccess) {
+        onSubmitSuccess();
+      }
+    } catch (error: any) {
+      console.error("Erro detalhado ao salvar produto:", error);
+      toast({
+        title: 'Erro ao Salvar Produto',
+        description: `Não foi possível salvar o produto. Detalhe: ${error.message || 'Erro desconhecido.'}`,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -69,7 +100,7 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
                 <FormItem>
                   <FormLabel>Nome do Produto*</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Disjuntor Bipolar 40A" {...field} />
+                    <Input placeholder="Ex: Disjuntor Bipolar 40A" {...field} disabled={isLoading} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -82,7 +113,7 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
                 <FormItem>
                   <FormLabel>Descrição</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Detalhes sobre o produto..." {...field} />
+                    <Textarea placeholder="Detalhes sobre o produto..." {...field} disabled={isLoading} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -96,7 +127,7 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
                   <FormItem>
                     <FormLabel>Preço de Venda (R$)*</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.01" placeholder="Ex: 45.90" {...field} />
+                      <Input type="number" step="0.01" placeholder="Ex: 45.90" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -109,7 +140,7 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
                   <FormItem>
                     <FormLabel>Preço de Custo (R$)* (Interno)</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.01" placeholder="Ex: 22.50" {...field} />
+                      <Input type="number" step="0.01" placeholder="Ex: 22.50" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormDescription>Este valor não aparece para o cliente.</FormDescription>
                     <FormMessage />
@@ -123,7 +154,7 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Categoria*</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione uma categoria" />
@@ -141,8 +172,8 @@ export function ProductForm({ product, onSubmitSuccess }: ProductFormProps) {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full md:w-auto">
-              {product ? 'Salvar Alterações' : 'Cadastrar Produto'}
+            <Button type="submit" className="w-full md:w-auto" disabled={isLoading}>
+              {isLoading ? (product ? 'Salvando...' : 'Cadastrando...') : (product ? 'Salvar Alterações' : 'Cadastrar Produto')}
             </Button>
           </form>
         </Form>

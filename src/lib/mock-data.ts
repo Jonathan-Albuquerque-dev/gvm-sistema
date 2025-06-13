@@ -10,7 +10,8 @@ const tenDaysAgo = new Date(new Date().setDate(today.getDate() - 10));
 const fifteenDaysAgo = new Date(new Date().setDate(today.getDate() - 15));
 
 
-// Keep MOCK_PRODUCTS for now, until Product CRUD is integrated with Firebase
+// MOCK_PRODUCTS is kept for initial structure but ProductList now fetches from Firebase.
+// It will be fully removed once product editing/seeding via Firebase is complete.
 export const MOCK_PRODUCTS: Product[] = [
   { id: 'prod-1', name: 'Disjuntor Bipolar 40A', description: 'Disjuntor termomagnético bipolar 40A', salePrice: 45.90, costPrice: 22.50, category: 'electrical', createdAt: oneMonthAgo.toISOString() },
   { id: 'prod-2', name: 'Tubo PVC Esgoto 100mm', description: 'Barra com 6m de tubo PVC para esgoto DN100', salePrice: 89.00, costPrice: 45.00, category: 'hydraulic', createdAt: twoMonthsAgo.toISOString() },
