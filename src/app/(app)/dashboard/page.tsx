@@ -194,7 +194,7 @@ export default function DashboardPage() {
                         </Avatar>
                       <div>
                         <p className="font-medium text-sm">{budget.clientName}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                           {new Date(budget.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                            {' - '}
                            <Badge 
@@ -209,7 +209,7 @@ export default function DashboardPage() {
                            >
                              {statusLabels[budget.status]}
                            </Badge>
-                        </p>
+                        </div>
                       </div>
                     </div>
                     <div className="text-sm font-semibold text-right">
@@ -227,3 +227,4 @@ export default function DashboardPage() {
     </>
   );
 }
+
