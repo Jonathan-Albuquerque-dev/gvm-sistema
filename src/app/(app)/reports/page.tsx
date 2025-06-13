@@ -13,8 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CalendarIcon, FileDown } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
-import { MOCK_BUDGETS, MOCK_CLIENTS, MOCK_PRODUCTS } from '@/lib/mock-data';
+import { MOCK_BUDGETS, MOCK_CLIENTS } from '@/lib/mock-data';
 import type { Budget, BudgetStatus, Client, ProductCategory } from '@/types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function ReportsPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -23,9 +25,9 @@ export default function ReportsPage() {
   });
   const [statusFilter, setStatusFilter] = useState<BudgetStatus | 'all'>('all');
   const [clientFilter, setClientFilter] = useState<string | 'all'>('all');
-  const [categoryFilter, setCategoryFilter] = useState<ProductCategory | 'all'>('all'); // For product-based reports
+  // const [categoryFilter, setCategoryFilter] = useState<ProductCategory | 'all'>('all'); // For product-based reports
 
-  const [reportData, setReportData] = useState<Budget[]>([]); 
+  const [reportData, setReportData] = useState<Budget[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
 
   useEffect(() => {
@@ -35,22 +37,63 @@ export default function ReportsPage() {
   const filteredReportData = useMemo(() => {
     return MOCK_BUDGETS.filter(budget => {
       const budgetDate = new Date(budget.createdAt);
-      const matchesDate = dateRange?.from && dateRange?.to ? 
+      const matchesDate = dateRange?.from && dateRange?.to ?
                           budgetDate >= dateRange.from && budgetDate <= dateRange.to : true;
       const matchesStatus = statusFilter === 'all' || budget.status === statusFilter;
       const matchesClient = clientFilter === 'all' || budget.clientId === clientFilter;
-      
+
       return matchesDate && matchesStatus && matchesClient;
     });
-  }, [dateRange, statusFilter, clientFilter]); 
-  
+  }, [dateRange, statusFilter, clientFilter]);
+
   const handleGenerateReport = () => {
     setReportData(filteredReportData);
   };
 
   const handleGeneratePdf = () => {
+    if (reportData.length === 0) {
+      console.log("Nenhum dado para gerar PDF.");
+      return;
+    }
+
+    const doc = new jsPDF();
+
+    doc.setFontSize(18);
+    doc.text('Relatório de Orçamentos', 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    const dateFromString = dateRange?.from ? format(dateRange.from, 'dd/MM/yy') : 'N/A';
+    const dateToString = dateRange?.to ? format(dateRange.to, 'dd/MM/yy') : 'N/A';
+    doc.text(`Período: ${dateFromString} - ${dateToString}`, 14, 30);
+    
+    const tableColumn = ["ID", "Cliente", "Status", "Valor Total", "Custo Material", "Margem Estimada"];
+    const tableRows: (string | number)[][] = [];
+
+    reportData.forEach(item => {
+      const budgetData = [
+        item.id.substring(0,8) + '...',
+        item.clientName,
+        item.status.charAt(0).toUpperCase() + item.status.slice(1),
+        item.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+        item.materialCostInternal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+        (item.totalAmount - item.materialCostInternal).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+      ];
+      tableRows.push(budgetData);
+    });
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 35,
+      headStyles: { fillColor: [22, 160, 133] }, // Exemplo de cor de cabeçalho
+      didDrawPage: function (data) {
+        // Adicionar totalizadores no final da tabela, se necessário.
+        // Exemplo: doc.text("Total: " + totalVendido, data.settings.margin.left, doc.internal.pageSize.height - 10);
+      }
+    });
+    
+    doc.save('relatorio_orcamentos.pdf');
     console.log("Gerar PDF para os relatórios:", reportData);
-    // Aqui viria a lógica de geração de PDF
   };
 
   return (
@@ -149,10 +192,10 @@ export default function ReportsPage() {
           </div>
         </CardContent>
       </Card>
-      
-      <ReportView 
-        data={reportData} 
-        title="Relatório de Orçamentos" 
+
+      <ReportView
+        data={reportData}
+        title="Relatório de Orçamentos"
         description={`Exibindo orçamentos ${dateRange?.from ? `de ${format(dateRange.from, 'dd/MM/yy')}` : ''} ${dateRange?.to ? `até ${format(dateRange.to, 'dd/MM/yy')}` : ''}.`}
       />
     </>
