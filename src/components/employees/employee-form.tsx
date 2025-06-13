@@ -23,6 +23,7 @@ import { useState, useEffect } from 'react';
 const formSchema = z.object({
   name: z.string().min(3, { message: 'Nome deve ter pelo menos 3 caracteres.' }),
   position: z.string().min(3, { message: 'Cargo deve ter pelo menos 3 caracteres.' }),
+  salary: z.coerce.number().positive({ message: 'Salário deve ser um valor positivo.' }),
   admissionDate: z.date({ required_error: 'Data de admissão é obrigatória.' }),
 });
 
@@ -40,9 +41,11 @@ export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
     defaultValues: employee ? {
       ...employee,
       admissionDate: new Date(employee.admissionDate),
+      salary: employee.salary || 0,
     } : {
       name: '',
       position: '',
+      salary: 0,
       admissionDate: undefined,
     },
   });
@@ -52,9 +55,10 @@ export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
       form.reset({
         ...employee,
         admissionDate: new Date(employee.admissionDate),
+        salary: employee.salary || 0,
       });
     } else {
-      form.reset({ name: '', position: '', admissionDate: undefined });
+      form.reset({ name: '', position: '', salary: 0, admissionDate: undefined });
     }
   }, [employee, form]);
 
@@ -85,7 +89,7 @@ export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
           title: 'Funcionário Cadastrado!',
           description: `${values.name} foi salvo com sucesso.`,
         });
-        form.reset({ name: '', position: '', admissionDate: undefined });
+        form.reset({ name: '', position: '', salary: 0, admissionDate: undefined });
       }
       if (onSubmitSuccess) {
         onSubmitSuccess();
@@ -181,6 +185,19 @@ export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
                 )}
               />
             </div>
+             <FormField
+                control={form.control}
+                name="salary"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Salário Bruto (R$)*</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="Ex: 3500.00" {...field} disabled={isLoading} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             <Button type="submit" className="w-full md:w-auto" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? (employee ? 'Salvando...' : 'Cadastrando...') : (employee ? 'Salvar Alterações' : 'Cadastrar Funcionário')}

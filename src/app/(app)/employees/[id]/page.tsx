@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Edit, Loader2, AlertTriangle, UserSquare2 } from 'lucide-react';
+import { ArrowLeft, Edit, Loader2, AlertTriangle, UserSquare2, TrendingUp, Percent } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { Employee } from '@/types';
@@ -50,14 +50,35 @@ export default function EmployeeDetailPage() {
     }
   }, [employeeId]);
 
-  const DetailItem = ({ label, value }: { label: string; value?: string | number | null }) => (
-    value ? (
+  const DetailItem = ({ label, value, currency = false }: { label: string; value?: string | number | null, currency?: boolean }) => (
+    value !== undefined && value !== null ? (
       <div className="py-2">
         <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        <p className="text-md">{value}</p>
+        <p className="text-md">{currency && typeof value === 'number' ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : value}</p>
       </div>
     ) : null
   );
+
+  const calculateEstimatedCharges = (salary: number) => {
+    if (!salary || salary <= 0) return null;
+
+    const fgts = salary * 0.08;
+    const thirteenthSalaryProvision = salary / 12;
+    const vacationProvision = (salary + salary / 3) / 12;
+    const totalMonthlyCharges = fgts + thirteenthSalaryProvision + vacationProvision;
+    const totalMonthlyCost = salary + totalMonthlyCharges;
+
+    return {
+      fgts,
+      thirteenthSalaryProvision,
+      vacationProvision,
+      totalMonthlyCharges,
+      totalMonthlyCost,
+    };
+  };
+
+  const estimatedCharges = employee?.salary ? calculateEstimatedCharges(employee.salary) : null;
+
 
   return (
     <>
@@ -99,29 +120,53 @@ export default function EmployeeDetailPage() {
       )}
 
       {!isLoading && !error && employee && (
-        <Card className="shadow-lg">
-          <CardHeader className="flex flex-row items-center gap-4 pb-4">
-            <UserSquare2 className="h-12 w-12 text-primary" />
-            <div>
-                <CardTitle className="text-2xl">{employee.name}</CardTitle>
-                <CardDescription>{employee.position}</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
-            <DetailItem label="Data de Admissão" value={format(new Date(employee.admissionDate), 'PPP', { locale: ptBR })} />
-            <div className="py-2">
-                <p className="text-sm font-medium text-muted-foreground">Data de Cadastro</p>
-                <p className="text-md">{new Date(employee.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-            </div>
-             {employee.updatedAt && (
-                <div className="py-2">
-                    <p className="text-sm font-medium text-muted-foreground">Última Atualização</p>
-                    <p className="text-md">{new Date(employee.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+        <div className="space-y-6">
+            <Card className="shadow-lg">
+            <CardHeader className="flex flex-row items-center gap-4 pb-4">
+                <UserSquare2 className="h-12 w-12 text-primary" />
+                <div>
+                    <CardTitle className="text-2xl">{employee.name}</CardTitle>
+                    <CardDescription>{employee.position}</CardDescription>
                 </div>
-             )}
-            {/* Futuramente, podemos adicionar campos como: Salário, Contato, etc. */}
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+                <DetailItem label="Salário Bruto Mensal" value={employee.salary} currency />
+                <DetailItem label="Data de Admissão" value={format(new Date(employee.admissionDate), 'PPP', { locale: ptBR })} />
+                <div className="py-2">
+                    <p className="text-sm font-medium text-muted-foreground">Data de Cadastro</p>
+                    <p className="text-md">{new Date(employee.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                </div>
+                {employee.updatedAt && (
+                    <div className="py-2">
+                        <p className="text-sm font-medium text-muted-foreground">Última Atualização</p>
+                        <p className="text-md">{new Date(employee.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                    </div>
+                )}
+            </CardContent>
+            </Card>
+
+            {estimatedCharges && (
+                 <Card className="shadow-lg">
+                    <CardHeader className="flex flex-row items-center gap-2">
+                        <Percent className="h-6 w-6 text-primary" />
+                        <CardTitle>Estimativa de Encargos Trabalhistas</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                        <DetailItem label="FGTS (8%)" value={estimatedCharges.fgts} currency />
+                        <DetailItem label="Provisão Mensal 13º Salário" value={estimatedCharges.thirteenthSalaryProvision} currency />
+                        <DetailItem label="Provisão Mensal Férias + 1/3" value={estimatedCharges.vacationProvision} currency />
+                        <DetailItem label="Total Encargos Mensais Estimados" value={estimatedCharges.totalMonthlyCharges} currency />
+                        <div className="sm:col-span-2 pt-2 mt-2 border-t">
+                            <p className="text-sm font-medium text-muted-foreground">Custo Total Mensal Estimado (Salário + Encargos)</p>
+                            <p className="text-lg font-semibold text-primary">{estimatedCharges.totalMonthlyCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                        </div>
+                    </CardContent>
+                    <CardContent className="pt-0">
+                         <p className="text-xs text-muted-foreground">Nota: Esta é uma estimativa simplificada. Os encargos reais podem variar. Consulte um contador.</p>
+                    </CardContent>
+                </Card>
+            )}
+        </div>
       )}
     </>
   );

@@ -60,6 +60,7 @@ export interface Employee {
   id: string;
   name: string;
   position: string; 
+  salary: number; // Salário Bruto Mensal
   admissionDate: string; 
   createdAt: string;
   updatedAt?: string; // ISO Date String

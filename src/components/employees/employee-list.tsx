@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Edit3, Trash2, MoreVertical, Eye, Loader2 } from 'lucide-react';
+import { Edit3, Trash2, MoreVertical, Eye, Loader2, DollarSign } from 'lucide-react';
 import type { Employee } from '@/types';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
@@ -100,6 +100,7 @@ export function EmployeeList() {
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead>Cargo</TableHead>
+              <TableHead className="hidden sm:table-cell">Salário Bruto</TableHead>
               <TableHead className="hidden md:table-cell">Data de Admissão</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
@@ -110,6 +111,9 @@ export function EmployeeList() {
                 <TableRow key={employee.id}>
                   <TableCell className="font-medium">{employee.name}</TableCell>
                   <TableCell>{employee.position}</TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {employee.salary.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </TableCell>
                   <TableCell className="hidden md:table-cell">
                     {format(new Date(employee.admissionDate), 'P', { locale: ptBR })}
                   </TableCell>
@@ -137,7 +141,7 @@ export function EmployeeList() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center">
+                <TableCell colSpan={5} className="h-24 text-center">
                   Nenhum funcionário encontrado. {employees.length === 0 && !searchTerm ? "Cadastre o primeiro funcionário." : ""}
                 </TableCell>
               </TableRow>
