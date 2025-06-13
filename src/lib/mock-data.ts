@@ -33,6 +33,7 @@ export const MOCK_BUDGETS: Budget[] = [
     materialCostInternal: (2 * 22.50) + (5 * 18.00), // 45 + 90 = 135.00
     totalAmount: 91.80 + 177.50, // 269.30
     status: 'approved',
+    observations: 'Instalação preferencialmente no período da manhã.',
     createdAt: oneMonthAgo.toISOString(),
     updatedAt: oneMonthAgo.toISOString(),
   },
@@ -46,6 +47,7 @@ export const MOCK_BUDGETS: Budget[] = [
     materialCostInternal: 3 * 45.00, // 135.00
     totalAmount: 267.00,
     status: 'sent',
+    observations: '',
     createdAt: twoMonthsAgo.toISOString(),
     updatedAt: twoMonthsAgo.toISOString(),
   },
@@ -59,6 +61,7 @@ export const MOCK_BUDGETS: Budget[] = [
     materialCostInternal: 1 * 150.00, // 150.00
     totalAmount: 250.00,
     status: 'draft',
+    observations: 'Verificar disponibilidade de cor alternativa.',
     createdAt: today.toISOString(),
     updatedAt: today.toISOString(),
   },
@@ -72,6 +75,7 @@ export const MOCK_BUDGETS: Budget[] = [
     materialCostInternal: 10 * 22.50, // 225.00
     totalAmount: 459.00,
     status: 'approved',
+    observations: '',
     createdAt: fifteenDaysAgo.toISOString(),
     updatedAt: fifteenDaysAgo.toISOString(),
   }

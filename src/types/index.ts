@@ -41,6 +41,7 @@ export interface Budget {
   materialCostInternal: number;
   totalAmount: number;
   status: BudgetStatus;
+  observations?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -59,7 +60,8 @@ export interface Employee {
   createdAt: string;
 }
 
-export type CostCategory = 'food' | 'transport' | 'salary' | 'rent' | 'utilities' | 'marketing' | 'office_supplies' | 'other';
+export type CostCategory = 'food' | 'transport' | 'salary' | 'rent' | 'utilities' | 'marketing' | 'office_supplies' | 'other' | 'benefits';
+
 
 export interface VariableCost {
   id: string;

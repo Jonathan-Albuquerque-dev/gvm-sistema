@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { Budget, BudgetStatus, Client, Product, BudgetItem } from '@/types';
@@ -26,6 +27,7 @@ const formSchema = z.object({
   clientId: z.string().min(1, { message: 'Selecione um cliente.' }),
   items: z.array(budgetItemSchema).min(1, "Adicione pelo menos um item ao orçamento."),
   status: z.enum(['draft', 'sent', 'approved', 'rejected'] as [BudgetStatus, ...BudgetStatus[]], { required_error: 'Selecione um status.' }),
+  observations: z.string().optional(),
 });
 
 interface BudgetFormProps {
@@ -49,10 +51,12 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
       clientId: budget.clientId,
       items: budget.items.map(item => ({ ...item, unitPrice: item.unitPrice, productName: item.productName })),
       status: budget.status,
+      observations: budget.observations || '',
     } : {
       clientId: '',
       items: [],
       status: 'draft',
+      observations: '',
     },
   });
 
@@ -100,6 +104,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
           };
       }),
       status: values.status,
+      observations: values.observations,
     };
     
     console.log({ ...budgetToSave, totalAmount, materialCostInternal: materialCost, clientName });
@@ -112,7 +117,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
       onSubmitSuccess();
     }
      if (!budget) { 
-        form.reset({ clientId: '', items: [], status: 'draft' }); 
+        form.reset({ clientId: '', items: [], status: 'draft', observations: '' }); 
     }
   }
 
@@ -251,6 +256,24 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                   <FormDescription>Calculado automaticamente. Não visível ao cliente.</FormDescription>
               </div>
             </div>
+
+            <FormField
+              control={form.control}
+              name="observations"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Observações</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Adicione observações relevantes para este orçamento (ex: condições de pagamento, prazos específicos, etc.)"
+                      className="resize-y"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
             <div className="text-right font-bold text-xl">
                 Total do Orçamento: {totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
@@ -270,4 +293,3 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
     </Card>
   );
 }
-
