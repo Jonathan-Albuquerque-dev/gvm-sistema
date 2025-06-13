@@ -43,14 +43,14 @@
     --chart-5: 27 87% 67%;
 
     /* Sidebar specific colors */
-    --sidebar-background: 175 18% 92%; /* Slightly darker, cooler version of #F2F4F3 with a hint of primary */
-    --sidebar-foreground: 150 5% 25%;
-    --sidebar-primary: 175 23% 65%; /* Darker primary for active items */
-    --sidebar-primary-foreground: 175 23% 10%;
-    --sidebar-accent: 178 38% 72%; /* Darker accent for hover items */
-    --sidebar-accent-foreground: 178 38% 15%;
-    --sidebar-border: 175 15% 80%;
-    --sidebar-ring: 175 30% 60%;
+    --sidebar-background: 0 0% 100%; /* White */
+    --sidebar-foreground: 222 22% 30%; /* Darker Gray for text */
+    --sidebar-primary: 217 91% 60%; /* Blue for header button background (e.g., #2563eb) */
+    --sidebar-primary-foreground: 0 0% 100%; /* White for header button icon */
+    --sidebar-accent: 220 85% 96%; /* Very Light Blue for active/hover menu item background */
+    --sidebar-accent-foreground: 217 91% 50%; /* Blue for active/hover menu item text/icon */
+    --sidebar-border: 220 15% 90%; /* Lighter grey for border */
+    --sidebar-ring: 217 91% 70%; /* Lighter Blue for ring */
 
     /* Status Colors for Dashboard Icons */
     --status-info-background: 206 90% 90%; /* Light Blue e.g. hsl(206, 90%, 90%) */
@@ -103,14 +103,16 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
 
-    --sidebar-background: 224 71% 7%;
-    --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 175 23% 60%;
-    --sidebar-primary-foreground: 175 23% 95%;
-    --sidebar-accent: 178 38% 55%;
-    --sidebar-accent-foreground: 178 38% 90%;
-    --sidebar-border: 224 71% 12%;
-    --sidebar-ring: 175 30% 45%;
+    /* Sidebar specific colors - Dark Theme */
+    --sidebar-background: 220 13% 12%; /* Darker Grey */
+    --sidebar-foreground: 210 40% 85%; /* Lighter Grey for text */
+    --sidebar-primary: 217 91% 60%;    /* Blue (same as light, for pop) */
+    --sidebar-primary-foreground: 0 0% 100%; /* White */
+    --sidebar-accent: 217 30% 22%;     /* Dark, muted blue for active/hover background */
+    --sidebar-accent-foreground: 210 100% 85%; /* Bright, light blue for active/hover text */
+    --sidebar-border: 220 13% 20%;     /* Slightly lighter border for dark */
+    --sidebar-ring: 217 91% 55%;       /* Slightly darker blue for ring */
+
 
     /* Status Colors for Dashboard Icons - Dark Theme */
     --status-info-background: 206 50% 25%; 
