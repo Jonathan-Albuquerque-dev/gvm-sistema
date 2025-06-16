@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Calculator, TrendingUp, Percent, Landmark, ShoppingCart, PlusCircle, HandCoins, ReceiptText, Loader2, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { DollarSign, Calculator, TrendingUp, Percent, Landmark, ShoppingCart, PlusCircle, HandCoins, ReceiptText, Loader2, MoreVertical, Edit, Trash2, FileDown } from 'lucide-react';
 import type { Budget, VariableCost, FixedCost, CostCategory } from '@/types';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
@@ -16,6 +16,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { FixedCostForm } from '@/components/costs/fixed-cost-form';
 import { VariableCostForm } from '@/components/costs/variable-cost-form';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { format } from 'date-fns';
 
 const categoryTranslations: Record<CostCategory, string> = {
   food: 'Alimentação',
@@ -179,6 +182,136 @@ export default function CostControlPage() {
       toast({ title: 'Erro ao Excluir', description: 'Não foi possível excluir o custo variável.', variant: 'destructive' });
     }
   };
+  
+  const handleGenerateCostReportPdf = () => {
+    if (isLoadingBudgets || isLoadingFixedCosts || isLoadingVariableCosts) {
+      toast({ title: "Aguarde", description: "Os dados ainda estão carregando. Tente novamente em breve.", variant: "default" });
+      return;
+    }
+
+    const pdfDoc = new jsPDF();
+    const pageWidth = pdfDoc.internal.pageSize.getWidth();
+    const margin = 14;
+    let currentY = 20;
+
+    pdfDoc.setFontSize(16);
+    pdfDoc.setFont('helvetica', 'bold');
+    pdfDoc.text('Relatório Geral de Controle de Custos', pageWidth / 2, currentY, { align: 'center' });
+    currentY += 8;
+    pdfDoc.setFontSize(10);
+    pdfDoc.setFont('helvetica', 'normal');
+    pdfDoc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pageWidth / 2, currentY, { align: 'center' });
+    currentY += 12;
+
+    // Seção de KPIs
+    pdfDoc.setFontSize(12);
+    pdfDoc.setFont('helvetica', 'bold');
+    pdfDoc.text('Resumo Financeiro (Geral)', margin, currentY);
+    currentY += 7;
+    pdfDoc.setFontSize(10);
+    pdfDoc.setFont('helvetica', 'normal');
+
+    const kpiData = [
+      { label: "Receita Total (Orçamentos Aprovados):", value: formatCurrency(receitaTotal) },
+      { label: "Custo Material Total (Orçamentos Aprovados):", value: formatCurrency(custoMaterialTotal) },
+      { label: "Custos Variáveis Totais (Lançados):", value: formatCurrency(custosVariaveisTotal) },
+      { label: "Custos Fixos Totais (Mensais):", value: formatCurrency(custosFixosTotal) },
+      { label: "Custo Total Geral:", value: formatCurrency(custoTotal) },
+      { label: "Lucro Total Geral:", value: formatCurrency(lucroTotal) },
+      { label: "Margem de Lucro Média:", value: formatPercent(margemMedia) },
+      { label: "Número de Orçamentos Aprovados:", value: approvedBudgetsCount.toString() },
+      { label: "Custo Médio por Projeto Aprovado:", value: formatCurrency(custoMedioPorProjeto) },
+    ];
+
+    kpiData.forEach(kpi => {
+      if (currentY > pdfDoc.internal.pageSize.getHeight() - 20) { pdfDoc.addPage(); currentY = 20; }
+      pdfDoc.text(`${kpi.label} ${kpi.value}`, margin, currentY);
+      currentY += 6;
+    });
+    currentY += 5;
+
+    // Seção de Custos Fixos
+    if (fixedCosts.length > 0) {
+      if (currentY > pdfDoc.internal.pageSize.getHeight() - 40) { pdfDoc.addPage(); currentY = 20; }
+      pdfDoc.setFontSize(12);
+      pdfDoc.setFont('helvetica', 'bold');
+      pdfDoc.text('Detalhes dos Custos Fixos Mensais', margin, currentY);
+      currentY += 7;
+      const fixedCostsColumns = ["Descrição", "Categoria", "Valor (R$)"];
+      const fixedCostsRows = fixedCosts.map(cost => [
+        cost.description,
+        categoryTranslations[cost.category as CostCategory] || cost.category,
+        cost.amount.toFixed(2)
+      ]);
+      autoTable(pdfDoc, {
+        head: [fixedCostsColumns],
+        body: fixedCostsRows,
+        startY: currentY,
+        theme: 'striped',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        footStyles: { fillColor: [230, 230, 230], textColor: 0, fontStyle: 'bold' },
+        columns: [{/* Descrição */}, {/* Categoria */}, { halign: 'right' /* Valor */ }],
+        didDrawPage: (data) => { currentY = data.cursor?.y || currentY; }
+      });
+      currentY = (pdfDoc as any).lastAutoTable.finalY + 5;
+      pdfDoc.setFontSize(10);
+      pdfDoc.setFont('helvetica', 'bold');
+      pdfDoc.text(`Total de Custos Fixos: ${formatCurrency(custosFixosTotal)}`, pageWidth - margin, currentY, { align: 'right' });
+      currentY += 10;
+    }
+
+    // Seção de Custos Variáveis
+    if (variableCosts.length > 0) {
+      if (currentY > pdfDoc.internal.pageSize.getHeight() - 40) { pdfDoc.addPage(); currentY = 20; }
+      pdfDoc.setFontSize(12);
+      pdfDoc.setFont('helvetica', 'bold');
+      pdfDoc.text('Detalhes dos Custos Variáveis Lançados', margin, currentY);
+      currentY += 7;
+      const variableCostsColumns = ["Descrição", "Data", "Categoria", "Valor (R$)"];
+      const variableCostsRows = variableCosts.map(cost => [
+        cost.description,
+        format(new Date(cost.date), 'dd/MM/yyyy'),
+        categoryTranslations[cost.category as CostCategory] || cost.category,
+        cost.amount.toFixed(2)
+      ]);
+       autoTable(pdfDoc, {
+        head: [variableCostsColumns],
+        body: variableCostsRows,
+        startY: currentY,
+        theme: 'striped',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        footStyles: { fillColor: [230, 230, 230], textColor: 0, fontStyle: 'bold' },
+        columns: [{/* Descrição */}, { halign: 'center' /* Data */}, {/* Categoria */}, { halign: 'right' /* Valor */}],
+        didDrawPage: (data) => { currentY = data.cursor?.y || currentY; }
+      });
+      currentY = (pdfDoc as any).lastAutoTable.finalY + 5;
+      pdfDoc.setFontSize(10);
+      pdfDoc.setFont('helvetica', 'bold');
+      pdfDoc.text(`Total de Custos Variáveis: ${formatCurrency(custosVariaveisTotal)}`, pageWidth - margin, currentY, { align: 'right' });
+      currentY += 10;
+    }
+    
+    // Seção Breakdown de Custos Totais
+    if (currentY > pdfDoc.internal.pageSize.getHeight() - 50) { pdfDoc.addPage(); currentY = 20; }
+    pdfDoc.setFontSize(12);
+    pdfDoc.setFont('helvetica', 'bold');
+    pdfDoc.text('Breakdown de Custos Totais (Baseado no Custo Total Geral)', margin, currentY);
+    currentY += 7;
+    pdfDoc.setFontSize(10);
+    pdfDoc.setFont('helvetica', 'normal');
+    pdfDoc.text(`Custos de Material: ${formatCurrency(custoMaterialTotal)} (${formatPercent(percentCustoMaterial)} do total)`, margin, currentY);
+    currentY += 6;
+    pdfDoc.text(`Custos Variáveis: ${formatCurrency(custosVariaveisTotal)} (${formatPercent(percentCustosVariaveis)} do total)`, margin, currentY);
+    currentY += 6;
+    pdfDoc.text(`Custos Fixos Mensais: ${formatCurrency(custosFixosTotal)} (${formatPercent(percentCustosFixos)} do total)`, margin, currentY);
+    currentY += 10;
+    
+    pdfDoc.setFontSize(8);
+    pdfDoc.text("Nota: Este relatório reflete os dados acumulados até a data de geração. Orçamentos, custos fixos e variáveis são considerados em sua totalidade.", margin, currentY, { maxWidth: pageWidth - margin * 2 });
+
+    pdfDoc.save('relatorio_controle_de_custos.pdf');
+    toast({ title: 'PDF Gerado', description: 'O relatório de controle de custos foi gerado com sucesso.' });
+  };
 
 
   if (isLoadingBudgets || isLoadingFixedCosts || isLoadingVariableCosts) {
@@ -193,9 +326,19 @@ export default function CostControlPage() {
     );
   }
 
+  const noDataForReport = fixedCosts.length === 0 && variableCosts.length === 0 && approvedBudgets.length === 0;
+
   return (
     <>
-      <PageHeader title="Controle de Custos" description="Análise de margem, rentabilidade e despesas." />
+      <PageHeader title="Controle de Custos" description="Análise de margem, rentabilidade e despesas.">
+        <Button 
+          onClick={handleGenerateCostReportPdf} 
+          variant="outline" 
+          disabled={noDataForReport || isLoadingBudgets || isLoadingFixedCosts || isLoadingVariableCosts}
+        >
+          <FileDown className="mr-2 h-4 w-4" /> Gerar PDF
+        </Button>
+      </PageHeader>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
         <Card className={kpiCardBaseClasses}>
@@ -466,5 +609,4 @@ export default function CostControlPage() {
     </>
   );
 }
-
     
