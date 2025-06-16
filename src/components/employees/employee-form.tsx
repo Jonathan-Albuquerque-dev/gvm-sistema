@@ -5,8 +5,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { Employee } from '@/types';
@@ -25,6 +26,8 @@ const formSchema = z.object({
   position: z.string().min(3, { message: 'Cargo deve ter pelo menos 3 caracteres.' }),
   salary: z.coerce.number().positive({ message: 'Salário deve ser um valor positivo.' }),
   admissionDate: z.date({ required_error: 'Data de admissão é obrigatória.' }),
+  hasMealVoucher: z.boolean().optional().default(false),
+  hasTransportVoucher: z.boolean().optional().default(false),
 });
 
 interface EmployeeFormProps {
@@ -42,11 +45,15 @@ export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
       ...employee,
       admissionDate: new Date(employee.admissionDate),
       salary: employee.salary || 0,
+      hasMealVoucher: employee.hasMealVoucher || false,
+      hasTransportVoucher: employee.hasTransportVoucher || false,
     } : {
       name: '',
       position: '',
       salary: 0,
       admissionDate: undefined,
+      hasMealVoucher: false,
+      hasTransportVoucher: false,
     },
   });
 
@@ -56,9 +63,11 @@ export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
         ...employee,
         admissionDate: new Date(employee.admissionDate),
         salary: employee.salary || 0,
+        hasMealVoucher: employee.hasMealVoucher || false,
+        hasTransportVoucher: employee.hasTransportVoucher || false,
       });
     } else {
-      form.reset({ name: '', position: '', salary: 0, admissionDate: undefined });
+      form.reset({ name: '', position: '', salary: 0, admissionDate: undefined, hasMealVoucher: false, hasTransportVoucher: false });
     }
   }, [employee, form]);
 
@@ -89,7 +98,7 @@ export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
           title: 'Funcionário Cadastrado!',
           description: `${values.name} foi salvo com sucesso.`,
         });
-        form.reset({ name: '', position: '', salary: 0, admissionDate: undefined });
+        form.reset({ name: '', position: '', salary: 0, admissionDate: undefined, hasMealVoucher: false, hasTransportVoucher: false });
       }
       if (onSubmitSuccess) {
         onSubmitSuccess();
@@ -145,7 +154,7 @@ export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
                 control={form.control}
                 name="admissionDate"
                 render={({ field }) => (
-                  <FormItem> {/* Removida a classe "flex flex-col" daqui */}
+                  <FormItem> 
                     <FormLabel>Data de Admissão*</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -198,6 +207,50 @@ export function EmployeeForm({ employee, onSubmitSuccess }: EmployeeFormProps) {
                   </FormItem>
                 )}
               />
+
+            <div className="space-y-4">
+                <FormField
+                control={form.control}
+                name="hasMealVoucher"
+                render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
+                    <FormControl>
+                        <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={isLoading}
+                        />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                        <FormLabel>
+                        Possui Vale Alimentação?
+                        </FormLabel>
+                    </div>
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="hasTransportVoucher"
+                render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
+                    <FormControl>
+                        <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={isLoading}
+                        />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                        <FormLabel>
+                        Possui Vale Transporte?
+                        </FormLabel>
+                    </div>
+                    </FormItem>
+                )}
+                />
+            </div>
+              
             <Button type="submit" className="w-full md:w-auto" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? (employee ? 'Salvando...' : 'Cadastrando...') : (employee ? 'Salvar Alterações' : 'Cadastrar Funcionário')}

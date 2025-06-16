@@ -49,7 +49,7 @@ export interface Budget {
   totalAmount: number; // Este será o valor final após descontos, fretes e impostos
   status: BudgetStatus;
   observations?: string;
-  deliveryTime?: string; // Novo campo adicionado
+  deliveryTime?: string; 
   
   appliedDiscountAmount?: number; // Valor monetário do desconto efetivamente aplicado
   discountType?: DiscountType;    // Tipo de desconto ('fixed' ou 'percentage')
@@ -73,6 +73,8 @@ export interface Employee {
   position: string; 
   salary: number; // Salário Bruto Mensal
   admissionDate: string; 
+  hasMealVoucher?: boolean;
+  hasTransportVoucher?: boolean;
   createdAt: string;
   updatedAt?: string; // ISO Date String
   // userId?: string;

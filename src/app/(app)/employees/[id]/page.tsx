@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Edit, Loader2, AlertTriangle, UserSquare2, TrendingUp, Percent } from 'lucide-react';
+import { ArrowLeft, Edit, Loader2, AlertTriangle, UserSquare2, TrendingUp, Percent, CheckCircle, XCircle } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { Employee } from '@/types';
@@ -50,14 +50,25 @@ export default function EmployeeDetailPage() {
     }
   }, [employeeId]);
 
-  const DetailItem = ({ label, value, currency = false }: { label: string; value?: string | number | null, currency?: boolean }) => (
-    value !== undefined && value !== null ? (
+  const DetailItem = ({ label, value, currency = false, isBoolean = false }: { label: string; value?: string | number | boolean | null, currency?: boolean, isBoolean?: boolean }) => {
+    if (value === undefined || value === null) return null;
+
+    let displayValue: React.ReactNode = value;
+    if (isBoolean) {
+      displayValue = value ? 
+        <span className="flex items-center text-green-600"><CheckCircle className="mr-1 h-4 w-4" /> Sim</span> : 
+        <span className="flex items-center text-red-600"><XCircle className="mr-1 h-4 w-4" /> Não</span>;
+    } else if (currency && typeof value === 'number') {
+      displayValue = value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+    
+    return (
       <div className="py-2">
         <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        <p className="text-md">{currency && typeof value === 'number' ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : value}</p>
+        <div className="text-md">{displayValue}</div>
       </div>
-    ) : null
-  );
+    );
+  };
 
   const calculateEstimatedCharges = (salary: number) => {
     if (!salary || salary <= 0) return null;
@@ -132,6 +143,8 @@ export default function EmployeeDetailPage() {
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
                 <DetailItem label="Salário Bruto Mensal" value={employee.salary} currency />
                 <DetailItem label="Data de Admissão" value={format(new Date(employee.admissionDate), 'PPP', { locale: ptBR })} />
+                 <DetailItem label="Vale Alimentação" value={employee.hasMealVoucher} isBoolean />
+                <DetailItem label="Vale Transporte" value={employee.hasTransportVoucher} isBoolean />
                 <div className="py-2">
                     <p className="text-sm font-medium text-muted-foreground">Data de Cadastro</p>
                     <p className="text-md">{new Date(employee.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
