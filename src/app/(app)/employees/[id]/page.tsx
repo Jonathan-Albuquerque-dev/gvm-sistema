@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Edit, Loader2, AlertTriangle, UserSquare2, TrendingUp, Percent, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Edit, Loader2, AlertTriangle, UserSquare2, Percent, CheckCircle, XCircle, DollarSign } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { Employee } from '@/types';
@@ -50,7 +50,7 @@ export default function EmployeeDetailPage() {
     }
   }, [employeeId]);
 
-  const DetailItem = ({ label, value, currency = false, isBoolean = false }: { label: string; value?: string | number | boolean | null, currency?: boolean, isBoolean?: boolean }) => {
+  const DetailItem = ({ label, value, currency = false, isBoolean = false, isNegative = false }: { label: string; value?: string | number | boolean | null, currency?: boolean, isBoolean?: boolean, isNegative?: boolean }) => {
     if (value === undefined || value === null) return null;
 
     let displayValue: React.ReactNode = value;
@@ -59,13 +59,13 @@ export default function EmployeeDetailPage() {
         <span className="flex items-center text-green-600"><CheckCircle className="mr-1 h-4 w-4" /> Sim</span> : 
         <span className="flex items-center text-red-600"><XCircle className="mr-1 h-4 w-4" /> Não</span>;
     } else if (currency && typeof value === 'number') {
-      displayValue = value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      displayValue = (isNegative && value > 0 ? -value : value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
     
     return (
-      <div className="py-2">
+      <div className="py-1">
         <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        <div className="text-md">{displayValue}</div>
+        <div className={`text-md ${isNegative ? 'text-red-600 dark:text-red-400' : ''}`}>{displayValue}</div>
       </div>
     );
   };
@@ -88,7 +88,31 @@ export default function EmployeeDetailPage() {
     };
   };
 
+  const calculateNetSalary = (salary: number, hasTransportVoucher?: boolean) => {
+    if (!salary || salary <= 0) return null;
+
+    const inssDiscountRate = 0.075; // 7.5%
+    const transportVoucherDiscountRate = 0.06; // 6%
+
+    const inssAmount = salary * inssDiscountRate;
+    let transportVoucherAmount = 0;
+    if (hasTransportVoucher) {
+      transportVoucherAmount = salary * transportVoucherDiscountRate;
+    }
+
+    const totalDeductions = inssAmount + transportVoucherAmount;
+    const netSalary = salary - totalDeductions;
+
+    return {
+      inssAmount,
+      transportVoucherAmount,
+      totalDeductions,
+      netSalary,
+    };
+  };
+
   const estimatedCharges = employee?.salary ? calculateEstimatedCharges(employee.salary) : null;
+  const estimatedNetSalary = employee?.salary ? calculateNetSalary(employee.salary, employee.hasTransportVoucher) : null;
 
 
   return (
@@ -140,17 +164,17 @@ export default function EmployeeDetailPage() {
                     <CardDescription>{employee.position}</CardDescription>
                 </div>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
                 <DetailItem label="Salário Bruto Mensal" value={employee.salary} currency />
                 <DetailItem label="Data de Admissão" value={format(new Date(employee.admissionDate), 'PPP', { locale: ptBR })} />
                  <DetailItem label="Vale Alimentação" value={employee.hasMealVoucher} isBoolean />
                 <DetailItem label="Vale Transporte" value={employee.hasTransportVoucher} isBoolean />
-                <div className="py-2">
+                <div className="py-1">
                     <p className="text-sm font-medium text-muted-foreground">Data de Cadastro</p>
                     <p className="text-md">{new Date(employee.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
                 </div>
                 {employee.updatedAt && (
-                    <div className="py-2">
+                    <div className="py-1">
                         <p className="text-sm font-medium text-muted-foreground">Última Atualização</p>
                         <p className="text-md">{new Date(employee.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
                     </div>
@@ -158,27 +182,53 @@ export default function EmployeeDetailPage() {
             </CardContent>
             </Card>
 
-            {estimatedCharges && (
-                 <Card className="shadow-lg">
-                    <CardHeader className="flex flex-row items-center gap-2">
-                        <Percent className="h-6 w-6 text-primary" />
-                        <CardTitle>Estimativa de Encargos Trabalhistas</CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                        <DetailItem label="FGTS (8%)" value={estimatedCharges.fgts} currency />
-                        <DetailItem label="Provisão Mensal 13º Salário" value={estimatedCharges.thirteenthSalaryProvision} currency />
-                        <DetailItem label="Provisão Mensal Férias + 1/3" value={estimatedCharges.vacationProvision} currency />
-                        <DetailItem label="Total Encargos Mensais Estimados" value={estimatedCharges.totalMonthlyCharges} currency />
-                        <div className="sm:col-span-2 pt-2 mt-2 border-t">
-                            <p className="text-sm font-medium text-muted-foreground">Custo Total Mensal Estimado (Salário + Encargos)</p>
-                            <p className="text-lg font-semibold text-primary">{estimatedCharges.totalMonthlyCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                        </div>
-                    </CardContent>
-                    <CardContent className="pt-0">
-                         <p className="text-xs text-muted-foreground">Nota: Esta é uma estimativa simplificada. Os encargos reais podem variar. Consulte um contador.</p>
-                    </CardContent>
-                </Card>
-            )}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {estimatedCharges && (
+                    <Card className="shadow-lg">
+                        <CardHeader className="flex flex-row items-center gap-2">
+                            <Percent className="h-6 w-6 text-primary" />
+                            <CardTitle>Estimativa de Encargos (Empresa)</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                            <DetailItem label="FGTS (8%)" value={estimatedCharges.fgts} currency />
+                            <DetailItem label="Provisão Mensal 13º Salário" value={estimatedCharges.thirteenthSalaryProvision} currency />
+                            <DetailItem label="Provisão Mensal Férias + 1/3" value={estimatedCharges.vacationProvision} currency />
+                            <DetailItem label="Total Encargos Mensais Estimados" value={estimatedCharges.totalMonthlyCharges} currency />
+                            <div className="sm:col-span-2 pt-2 mt-2 border-t">
+                                <p className="text-sm font-medium text-muted-foreground">Custo Total Mensal Estimado (Salário + Encargos)</p>
+                                <p className="text-lg font-semibold text-primary">{estimatedCharges.totalMonthlyCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                            </div>
+                        </CardContent>
+                        <CardContent className="pt-0">
+                            <p className="text-xs text-muted-foreground">Nota: Encargos da empresa. Não são descontados do funcionário. Consulte um contador.</p>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {estimatedNetSalary && employee.salary && (
+                     <Card className="shadow-lg">
+                        <CardHeader className="flex flex-row items-center gap-2">
+                            <DollarSign className="h-6 w-6 text-green-600" />
+                            <CardTitle>Estimativa de Salário Líquido (Funcionário)</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                            <DetailItem label="Salário Bruto" value={employee.salary} currency />
+                            <DetailItem label="Desconto INSS (7.5%)" value={estimatedNetSalary.inssAmount} currency isNegative />
+                            {employee.hasTransportVoucher && (
+                                <DetailItem label="Desconto Vale Transporte (6%)" value={estimatedNetSalary.transportVoucherAmount} currency isNegative />
+                            )}
+                             <DetailItem label="Total Descontos Estimados" value={estimatedNetSalary.totalDeductions} currency isNegative />
+                            <div className="sm:col-span-2 pt-2 mt-2 border-t">
+                                <p className="text-sm font-medium text-muted-foreground">Salário Líquido Estimado</p>
+                                <p className="text-lg font-semibold text-green-700 dark:text-green-500">{estimatedNetSalary.netSalary.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                            </div>
+                        </CardContent>
+                        <CardContent className="pt-0">
+                            <p className="text-xs text-muted-foreground">Nota: Estimativa simplificada. Outros descontos (IRRF, etc.) ou acréscimos podem se aplicar. Consulte um contador.</p>
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
         </div>
       )}
     </>
