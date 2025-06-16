@@ -256,7 +256,7 @@ export default function EmployeeDetailPage() {
                     </Card>
                 )}
 
-                {estimatedNetSalary && employee.salary && estimatedCharges && (
+                {estimatedNetSalary && employee.salary && (
                      <Card className="shadow-lg">
                         <CardHeader className="flex flex-row items-center gap-2">
                             <DollarSign className="h-6 w-6 text-green-600" />
@@ -264,24 +264,6 @@ export default function EmployeeDetailPage() {
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
                             <DetailItem label="Salário Bruto" value={employee.salary} currency />
-                            
-                            {employee.hasMealVoucher && estimatedCharges.mealVoucherCost > 0 && (
-                                <DetailItem 
-                                    label="Vale Alimentação (Benefício)" 
-                                    value={estimatedCharges.mealVoucherCost} 
-                                    currency 
-                                    Icon={Utensils}
-                                />
-                            )}
-                            {employee.hasTransportVoucher && estimatedCharges.transportVoucherCost > 0 && (
-                                 <DetailItem 
-                                    label="Vale Transporte (Benefício Total)" 
-                                    value={estimatedCharges.transportVoucherCost} 
-                                    currency 
-                                    Icon={Bus}
-                                />
-                            )}
-                            
                             <DetailItem label="Desconto INSS (7.5%)" value={estimatedNetSalary.inssAmount} currency isNegative />
                             {employee.hasTransportVoucher && (
                                 <DetailItem label="Desconto Vale Transporte (Co-participação 6%)" value={estimatedNetSalary.transportVoucherAmount} currency isNegative />
@@ -293,7 +275,7 @@ export default function EmployeeDetailPage() {
                             </div>
                         </CardContent>
                         <CardContent className="pt-0">
-                            <p className="text-xs text-muted-foreground">Nota: Estimativa simplificada. O Salário Líquido é (Salário Bruto - Desconto INSS - Desconto VT). Os valores de VA e VT (Benefício) são informativos. Outros descontos (IRRF, etc.) ou acréscimos podem se aplicar. Consulte um contador.</p>
+                            <p className="text-xs text-muted-foreground">Nota: Estimativa simplificada. O Salário Líquido é (Salário Bruto - Desconto INSS - Desconto VT). Outros descontos (IRRF, etc.) ou acréscimos podem se aplicar. Consulte um contador.</p>
                         </CardContent>
                     </Card>
                 )}
