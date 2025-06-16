@@ -199,8 +199,8 @@ export default function EmployeeDetailPage() {
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
                 <DetailItem label="Salário Bruto Mensal" value={employee.salary} currency />
                 <DetailItem label="Data de Admissão" value={format(new Date(employee.admissionDate), 'PPP', { locale: ptBR })} />
-                 <DetailItem label="Vale Alimentação" value={employee.hasMealVoucher} isBoolean Icon={Utensils} />
-                <DetailItem label="Vale Transporte" value={employee.hasTransportVoucher} isBoolean Icon={Bus} />
+                 <DetailItem label="Vale Alimentação (Optante)" value={employee.hasMealVoucher} isBoolean Icon={Utensils} />
+                <DetailItem label="Vale Transporte (Optante)" value={employee.hasTransportVoucher} isBoolean Icon={Bus} />
                 <div className="py-1">
                     <p className="text-sm font-medium text-muted-foreground">Data de Cadastro</p>
                     <p className="text-md">{new Date(employee.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
@@ -256,7 +256,7 @@ export default function EmployeeDetailPage() {
                     </Card>
                 )}
 
-                {estimatedNetSalary && employee.salary && (
+                {estimatedNetSalary && employee.salary && estimatedCharges && (
                      <Card className="shadow-lg">
                         <CardHeader className="flex flex-row items-center gap-2">
                             <DollarSign className="h-6 w-6 text-green-600" />
@@ -264,18 +264,36 @@ export default function EmployeeDetailPage() {
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
                             <DetailItem label="Salário Bruto" value={employee.salary} currency />
+                            
+                            {employee.hasMealVoucher && estimatedCharges.mealVoucherCost > 0 && (
+                                <DetailItem 
+                                    label="Vale Alimentação (Benefício)" 
+                                    value={estimatedCharges.mealVoucherCost} 
+                                    currency 
+                                    Icon={Utensils}
+                                />
+                            )}
+                            {employee.hasTransportVoucher && estimatedCharges.transportVoucherCost > 0 && (
+                                 <DetailItem 
+                                    label="Vale Transporte (Benefício Total)" 
+                                    value={estimatedCharges.transportVoucherCost} 
+                                    currency 
+                                    Icon={Bus}
+                                />
+                            )}
+                            
                             <DetailItem label="Desconto INSS (7.5%)" value={estimatedNetSalary.inssAmount} currency isNegative />
                             {employee.hasTransportVoucher && (
-                                <DetailItem label="Desconto Vale Transporte (6%)" value={estimatedNetSalary.transportVoucherAmount} currency isNegative />
+                                <DetailItem label="Desconto Vale Transporte (Co-participação 6%)" value={estimatedNetSalary.transportVoucherAmount} currency isNegative />
                             )}
-                             <DetailItem label="Total Descontos Estimados" value={estimatedNetSalary.totalDeductions} currency isNegative />
+                             <DetailItem label="Total Descontos Estimados (sobre salário)" value={estimatedNetSalary.totalDeductions} currency isNegative />
                             <div className="sm:col-span-2 pt-2 mt-2 border-t">
-                                <p className="text-sm font-medium text-muted-foreground">Salário Líquido Estimado</p>
+                                <p className="text-sm font-medium text-muted-foreground">Salário Líquido Estimado (Bruto - Descontos)</p>
                                 <p className="text-lg font-semibold text-green-700 dark:text-green-500">{estimatedNetSalary.netSalary.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                             </div>
                         </CardContent>
                         <CardContent className="pt-0">
-                            <p className="text-xs text-muted-foreground">Nota: Estimativa simplificada. Outros descontos (IRRF, etc.) ou acréscimos podem se aplicar. Consulte um contador.</p>
+                            <p className="text-xs text-muted-foreground">Nota: Estimativa simplificada. O Salário Líquido é (Salário Bruto - Desconto INSS - Desconto VT). Os valores de VA e VT (Benefício) são informativos. Outros descontos (IRRF, etc.) ou acréscimos podem se aplicar. Consulte um contador.</p>
                         </CardContent>
                     </Card>
                 )}
