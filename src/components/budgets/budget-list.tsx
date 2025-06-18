@@ -94,7 +94,7 @@ export function BudgetList() {
     let clientData: Client | null = null;
     if (budget.clientId) {
         try {
-            const clientDocRef = doc(db, 'clients', budget.clientId); // 'doc' do firestore
+            const clientDocRef = doc(db, 'clients', budget.clientId); 
             const clientDocSnap = await getDoc(clientDocRef);
             if (clientDocSnap.exists()) {
                 clientData = clientDocSnap.data() as Client;
@@ -107,11 +107,12 @@ export function BudgetList() {
         }
     }
 
-    const pdfDoc = new jsPDF(); // 'pdfDoc' é a instância do jsPDF
+    const pdfDoc = new jsPDF(); 
     const pageWidth = pdfDoc.internal.pageSize.getWidth();
     const margin = 10;
     const contentWidth = pageWidth - margin * 2;
     let currentY = 20;
+    const fieldHeight = 5; 
     
     pdfDoc.setFontSize(10);
     pdfDoc.setFont('helvetica', 'normal');
@@ -130,7 +131,6 @@ export function BudgetList() {
     currentY += 8;
 
     pdfDoc.setFontSize(8);
-    const fieldHeight = 5;
     const col1X = margin;
     const col2X = margin + contentWidth / 2.2; 
 
@@ -172,13 +172,21 @@ export function BudgetList() {
     pdfDoc.setFontSize(8);
     pdfDoc.setFont('helvetica', 'bold');
     pdfDoc.text("VALIDO POR 7 DIAS", col1X, currentY);
-    pdfDoc.text("PRAZO DE ENTREGA", col2X, currentY);
+    pdfDoc.text("PRAZO DE ENTREGA:", col2X, currentY);
     pdfDoc.setFont('helvetica', 'normal');
     const deliveryTimeText = budget.deliveryTime || "A COMBINAR";
-    pdfDoc.text(deliveryTimeText.toUpperCase(), col2X + pdfDoc.getTextWidth("PRAZO DE ENTREGA ") + 2, currentY);
+    pdfDoc.text(deliveryTimeText.toUpperCase(), col2X + pdfDoc.getTextWidth("PRAZO DE ENTREGA: ") + 1, currentY, { maxWidth: contentWidth / 2.2 - (pdfDoc.getTextWidth("PRAZO DE ENTREGA: ") + 1) });
+
+    currentY += fieldHeight; 
+
+    pdfDoc.setFont('helvetica', 'bold');
+    pdfDoc.text("FORMA DE PAGAMENTO:", col1X, currentY);
+    pdfDoc.setFont('helvetica', 'normal');
+    const paymentMethodText = budget.paymentMethod || "N/A";
+    pdfDoc.text(paymentMethodText.toUpperCase(), col1X + pdfDoc.getTextWidth("FORMA DE PAGAMENTO:") + 2, currentY, { maxWidth: contentWidth / 2.2 - (pdfDoc.getTextWidth("FORMA DE PAGAMENTO:") + 2) });
 
 
-    currentY += 6;
+    currentY += 6; 
     pdfDoc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 2;
 
@@ -370,6 +378,7 @@ export function BudgetList() {
 
 
     
+
 
 
 

@@ -12,7 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import type { Budget, BudgetStatus, Client, Product, DiscountType } from '@/types';
+import type { Budget, BudgetStatus, Client, Product, DiscountType, PaymentMethod } from '@/types';
+import { PAYMENT_METHODS } from '@/types';
 import { useEffect, useState, useCallback } from 'react';
 import { PlusCircle, Trash2, FileDown, Loader2, Percent, CaseUpper } from 'lucide-react';
 import { db } from '@/lib/firebase';
@@ -29,6 +30,7 @@ const formSchema = z.object({
   clientId: z.string().min(1, { message: 'Selecione um cliente.' }),
   items: z.array(budgetItemSchema).min(1, "Adicione pelo menos um item ao orçamento."),
   status: z.enum(['draft', 'sent', 'approved', 'rejected'] as [BudgetStatus, ...BudgetStatus[]], { required_error: 'Selecione um status.' }),
+  paymentMethod: z.enum(PAYMENT_METHODS).optional(),
   deliveryTime: z.string().optional(),
   observations: z.string().optional(),
   discountType: z.enum(['fixed', 'percentage'] as [DiscountType, ...DiscountType[]]).optional().default('fixed'),
@@ -103,6 +105,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
         productName: item.productName 
       })),
       status: budget.status,
+      paymentMethod: budget.paymentMethod || undefined,
       deliveryTime: budget.deliveryTime || '',
       observations: budget.observations || '',
       discountType: budget.discountType || 'fixed',
@@ -113,6 +116,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
       clientId: '',
       items: [],
       status: 'draft',
+      paymentMethod: undefined,
       deliveryTime: '',
       observations: '',
       discountType: 'fixed',
@@ -133,6 +137,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                 productName: item.productName
             })),
             status: budget.status,
+            paymentMethod: budget.paymentMethod || undefined,
             deliveryTime: budget.deliveryTime || '',
             observations: budget.observations || '',
             discountType: budget.discountType || 'fixed',
@@ -141,7 +146,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
             taxAmount: budget.taxAmount || 0,
         });
     } else {
-        form.reset({ clientId: '', items: [], status: 'draft', deliveryTime: '', observations: '', discountType: 'fixed', discountInput: 0, shippingCost: 0, taxAmount: 0 });
+        form.reset({ clientId: '', items: [], status: 'draft', paymentMethod: undefined, deliveryTime: '', observations: '', discountType: 'fixed', discountInput: 0, shippingCost: 0, taxAmount: 0 });
     }
   }, [budget, form]);
 
@@ -247,11 +252,12 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
 
 
     try {
-        const budgetDataPayload: Partial<Budget> = { // Usando Partial<Budget> para flexibilidade
+        const budgetDataPayload: Partial<Budget> = { 
             clientId: values.clientId,
             clientName: selectedClient.name,
             items: budgetItemsData,
             status: values.status,
+            paymentMethod: values.paymentMethod,
             deliveryTime: values.deliveryTime || '',
             observations: values.observations || '',
             appliedDiscountAmount: finalAppliedDiscountAmount,
@@ -272,12 +278,12 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
             });
         } else {
             budgetDataPayload.createdAt = new Date().toISOString();
-            await addDoc(collection(db, 'budgets'), budgetDataPayload as Budget); // Cast para Budget aqui
+            await addDoc(collection(db, 'budgets'), budgetDataPayload as Budget); 
             toast({
                 title: 'Orçamento Criado!',
                 description: `O orçamento para ${selectedClient.name} foi salvo com sucesso.`,
             });
-            form.reset({ clientId: '', items: [], status: 'draft', deliveryTime: '', observations: '', discountType: 'fixed', discountInput: 0, shippingCost: 0, taxAmount: 0 });
+            form.reset({ clientId: '', items: [], status: 'draft', paymentMethod: undefined, deliveryTime: '', observations: '', discountType: 'fixed', discountInput: 0, shippingCost: 0, taxAmount: 0 });
         }
       if (onSubmitSuccess) {
         onSubmitSuccess();
@@ -358,7 +364,30 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
               />
             </div>
             
-            <FormField
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <FormField
+                control={form.control}
+                name="paymentMethod"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Forma de Pagamento</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoading}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione uma forma de pagamento" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {PAYMENT_METHODS.map(method => (
+                          <SelectItem key={method} value={method}>{method}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
                 control={form.control}
                 name="deliveryTime"
                 render={({ field }) => (
@@ -371,6 +400,7 @@ export function BudgetForm({ budget, onSubmitSuccess }: BudgetFormProps) {
                   </FormItem>
                 )}
               />
+            </div>
 
 
             <Card>

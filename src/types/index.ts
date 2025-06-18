@@ -39,6 +39,8 @@ export interface BudgetItem {
 
 export type BudgetStatus = 'draft' | 'sent' | 'approved' | 'rejected';
 export type DiscountType = 'fixed' | 'percentage';
+export const PAYMENT_METHODS = ['À vista', 'Crédito', 'Boletos'] as const;
+export type PaymentMethod = typeof PAYMENT_METHODS[number];
 
 export interface Budget {
   id: string;
@@ -50,6 +52,7 @@ export interface Budget {
   status: BudgetStatus;
   observations?: string;
   deliveryTime?: string; 
+  paymentMethod?: PaymentMethod;
   
   appliedDiscountAmount?: number; // Valor monetário do desconto efetivamente aplicado
   discountType?: DiscountType;    // Tipo de desconto ('fixed' ou 'percentage')

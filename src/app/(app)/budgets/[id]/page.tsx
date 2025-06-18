@@ -5,10 +5,10 @@ import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Loader2, AlertTriangle, FileText, ShoppingCart, Edit, Percent, Clock } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertTriangle, FileText, ShoppingCart, Edit, Percent, Clock, CreditCard } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import type { Budget, BudgetStatus, BudgetItem, DiscountType } from '@/types';
+import type { Budget, BudgetStatus, BudgetItem, DiscountType, PaymentMethod } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Link from 'next/link';
@@ -70,10 +70,13 @@ export default function BudgetDetailPage() {
     }
   }, [budgetId]);
 
-  const DetailItem = ({ label, value, currency = false, className, isNegative = false, isPositive = false, suffix }: { label: string; value?: string | number | null, currency?: boolean, className?: string, isNegative?: boolean, isPositive?: boolean, suffix?: string }) => (
-    value !== undefined && value !== null && (typeof value !== 'number' || value !== 0 || label.toLowerCase().includes("desconto")) ? ( 
+  const DetailItem = ({ label, value, currency = false, className, isNegative = false, isPositive = false, suffix, Icon }: { label: string; value?: string | number | null, currency?: boolean, className?: string, isNegative?: boolean, isPositive?: boolean, suffix?: string, Icon?: React.ElementType }) => (
+    value !== undefined && value !== null && (typeof value !== 'number' || value !== 0 || label.toLowerCase().includes("desconto") || label.toLowerCase().includes("forma de pagamento")) ? ( 
       <div className={`py-2 ${className}`}>
-        <p className="text-sm font-medium text-muted-foreground">{label}</p>
+        <p className="text-sm font-medium text-muted-foreground flex items-center">
+           {Icon && <Icon className="mr-1.5 h-4 w-4" />}
+           {label}
+        </p>
         <p className={`text-md ${isNegative ? 'text-red-600 dark:text-red-400' : ''} ${isPositive ? 'text-green-600 dark:text-green-400' : ''}`}>
           {currency && typeof value === 'number' ? 
             (isNegative && value > 0 ? -value : value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) 
@@ -149,9 +152,8 @@ export default function BudgetDetailPage() {
                 <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2">
                     <DetailItem label="Data de Criação" value={new Date(budget.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} />
                     {budget.updatedAt && <DetailItem label="Última Atualização" value={new Date(budget.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} />}
-                    {budget.deliveryTime && <DetailItem label="Prazo de Entrega" value={budget.deliveryTime} className="flex items-center gap-1">
-                        <Clock className="h-4 w-4 text-muted-foreground"/>
-                       </DetailItem>}
+                    {budget.deliveryTime && <DetailItem label="Prazo de Entrega" value={budget.deliveryTime} Icon={Clock}/>}
+                    {budget.paymentMethod && <DetailItem label="Forma de Pagamento" value={budget.paymentMethod} Icon={CreditCard}/>}
                     
                     <div className="md:col-span-3 mt-4 pt-4 border-t">
                         <p className="text-lg font-semibold">Resumo Financeiro</p>
