@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCap
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { Edit3, Trash2, MoreVertical, Eye, Loader2, ReceiptText } from 'lucide-react';
+import { Edit3, Trash2, MoreVertical, Eye, Loader2 } from 'lucide-react';
 import type { Boleto, BoletoParcelaStatus } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -32,9 +32,10 @@ const getAggregatedStatus = (boleto: Boleto): { text: string, key: AggregatedSta
     }
 
     let allPaid = true;
-    let hasOverdue = false;
+    let hasOverdueInstallment = false;
     let nextDueDate: Date | null = null;
-    let allCancelled = true; // Assume all cancelled until a non-cancelled is found
+    let allCancelled = true;
+    // let hasPendingInstallment = false; // Not strictly needed if other flags are comprehensive
 
     for (const installment of boleto.installments) {
         if (installment.status !== 'pago') {
@@ -44,31 +45,36 @@ const getAggregatedStatus = (boleto: Boleto): { text: string, key: AggregatedSta
             allCancelled = false;
         }
 
-        if (installment.status !== 'pago' && installment.status !== 'cancelado') {
+        // Only consider non-cancelled installments for overdue and next due date logic
+        if (installment.status !== 'cancelado') {
             const dueDate = startOfDay(parseISO(installment.dueDate));
-            if (isBefore(dueDate, today)) {
-                hasOverdue = true;
-            }
-            // For "proximo", consider only 'pendente' installments due today or in the future
-            if (installment.status === 'pendente' && !isBefore(dueDate, today)) {
-                if (!nextDueDate || isBefore(dueDate, nextDueDate)) {
-                    nextDueDate = dueDate;
+            if (installment.status === 'pendente') {
+                // hasPendingInstallment = true;
+                if (isBefore(dueDate, today)) {
+                    hasOverdueInstallment = true; // Pending and past due date means an overdue installment
+                } else { // Pending and due date is today or in the future
+                    if (!nextDueDate || isBefore(dueDate, nextDueDate)) {
+                        nextDueDate = dueDate;
+                    }
                 }
+            } else if (installment.status === 'vencido') {
+                hasOverdueInstallment = true;
             }
         }
     }
 
     if (allPaid) return { text: "Quitado", key: "quitado", variant: "default" };
+    // If all installments are cancelled, it's "Cancelado", regardless of other states.
     if (allCancelled) return {text: "Cancelado", key: "cancelado", variant: "secondary"};
-    // "Vencido" takes precedence if any installment is overdue
-    if (hasOverdue) return { text: "Vencido", key: "vencido", variant: "destructive" };
-    // If not overdue, check for next upcoming payment
+    
+    // If not all paid and not all cancelled, then check for active states:
+    if (hasOverdueInstallment) return { text: "Vencido", key: "vencido", variant: "destructive" };
     if (nextDueDate) return { text: `Próx: ${format(nextDueDate, 'dd/MM/yy', { locale: ptBR })}`, key: "proximo", variant: "outline" }; 
     
-    // If not all paid, not all cancelled, not overdue, and no future pending, it's generically "pendente"
-    // This implies all non-cancelled/non-paid installments are 'pendente' but their due dates passed (covered by hasOverdue)
-    // or they were 'pendente' but their due date was in the past and now it should be 'vencido'.
-    // This fallback 'pendente' key might be less common if 'vencido' and 'proximo' cover most active cases.
+    // Fallback: If it's not quitado, not (all) cancelado, not vencido, and has no future pending installments,
+    // it's likely in a general "pendente" state (e.g., manually set, or an edge case).
+    // This implies all its active installments might be past due but somehow not caught by hasOverdueInstallment (unlikely with current logic),
+    // or it's an unusual state.
     return { text: "Pendente", key: "pendente", variant: "secondary" };
 };
 
@@ -112,12 +118,13 @@ export function BoletoList({ boletos, isLoading }: BoletoListProps) {
     const statusInfo = getAggregatedStatus(boleto);
 
     if (viewFilter === 'todos') return true;
-    if (viewFilter === 'ativos') {
+    if (viewFilter === 'ativos') { // Shows pending (including 'proximo') and vencido
         return statusInfo.key === 'pendente' || statusInfo.key === 'vencido' || statusInfo.key === 'proximo';
     }
-    if (viewFilter === 'pendente') {
+    if (viewFilter === 'pendente') { // Specifically 'pendente' or 'proximo'
         return statusInfo.key === 'pendente' || statusInfo.key === 'proximo';
     }
+    // For 'vencido', 'quitado', 'cancelado', 'proximo', 'sem_parcelas'
     return statusInfo.key === viewFilter;
   });
 
@@ -229,3 +236,5 @@ export function BoletoList({ boletos, isLoading }: BoletoListProps) {
     </div>
   );
 }
+
+    
