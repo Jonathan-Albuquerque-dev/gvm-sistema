@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { format, parseISO, isBefore, startOfDay } from 'date-fns';
+import { format, parseISO, isBefore, startOfDay, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { db } from '@/lib/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
@@ -35,7 +35,8 @@ const getAggregatedStatus = (boleto: Boleto): { text: string, key: AggregatedSta
     let hasOverdueInstallment = false;
     let nextDueDate: Date | null = null;
     let allCancelled = true;
-    // let hasPendingInstallment = false; // Not strictly needed if other flags are comprehensive
+    let hasPendingInstallment = false;
+
 
     for (const installment of boleto.installments) {
         if (installment.status !== 'pago') {
@@ -45,14 +46,13 @@ const getAggregatedStatus = (boleto: Boleto): { text: string, key: AggregatedSta
             allCancelled = false;
         }
 
-        // Only consider non-cancelled installments for overdue and next due date logic
-        if (installment.status !== 'cancelado') {
+        if (installment.status !== 'cancelado') { // Only consider non-cancelled for overdue/next due
             const dueDate = startOfDay(parseISO(installment.dueDate));
             if (installment.status === 'pendente') {
-                // hasPendingInstallment = true;
+                hasPendingInstallment = true;
                 if (isBefore(dueDate, today)) {
-                    hasOverdueInstallment = true; // Pending and past due date means an overdue installment
-                } else { // Pending and due date is today or in the future
+                    hasOverdueInstallment = true; 
+                } else { 
                     if (!nextDueDate || isBefore(dueDate, nextDueDate)) {
                         nextDueDate = dueDate;
                     }
@@ -64,18 +64,18 @@ const getAggregatedStatus = (boleto: Boleto): { text: string, key: AggregatedSta
     }
 
     if (allPaid) return { text: "Quitado", key: "quitado", variant: "default" };
-    // If all installments are cancelled, it's "Cancelado", regardless of other states.
-    if (allCancelled) return {text: "Cancelado", key: "cancelado", variant: "secondary"};
+    if (allCancelled) return { text: "Cancelado", key: "cancelado", variant: "secondary" };
     
-    // If not all paid and not all cancelled, then check for active states:
     if (hasOverdueInstallment) return { text: "Vencido", key: "vencido", variant: "destructive" };
-    if (nextDueDate) return { text: `Próx: ${format(nextDueDate, 'dd/MM/yy', { locale: ptBR })}`, key: "proximo", variant: "outline" }; 
+    if (nextDueDate) {
+      const daysDiff = differenceInDays(nextDueDate, today);
+      if (daysDiff >=0 && daysDiff <= 5) { // If due in 0-5 days
+        return { text: `Próx: ${format(nextDueDate, 'dd/MM/yy', { locale: ptBR })}`, key: "proximo", variant: "outline" }; 
+      }
+    }
+    if (hasPendingInstallment) return { text: "Pendente", key: "pendente", variant: "secondary" }; // General pending if not overdue or next due soon
     
-    // Fallback: If it's not quitado, not (all) cancelado, not vencido, and has no future pending installments,
-    // it's likely in a general "pendente" state (e.g., manually set, or an edge case).
-    // This implies all its active installments might be past due but somehow not caught by hasOverdueInstallment (unlikely with current logic),
-    // or it's an unusual state.
-    return { text: "Pendente", key: "pendente", variant: "secondary" };
+    return { text: "Pendente", key: "pendente", variant: "secondary" }; // Fallback / Default if no other specific status
 };
 
 
@@ -118,13 +118,12 @@ export function BoletoList({ boletos, isLoading }: BoletoListProps) {
     const statusInfo = getAggregatedStatus(boleto);
 
     if (viewFilter === 'todos') return true;
-    if (viewFilter === 'ativos') { // Shows pending (including 'proximo') and vencido
+    if (viewFilter === 'ativos') { 
         return statusInfo.key === 'pendente' || statusInfo.key === 'vencido' || statusInfo.key === 'proximo';
     }
-    if (viewFilter === 'pendente') { // Specifically 'pendente' or 'proximo'
+    if (viewFilter === 'pendente') { 
         return statusInfo.key === 'pendente' || statusInfo.key === 'proximo';
     }
-    // For 'vencido', 'quitado', 'cancelado', 'proximo', 'sem_parcelas'
     return statusInfo.key === viewFilter;
   });
 
@@ -149,15 +148,15 @@ export function BoletoList({ boletos, isLoading }: BoletoListProps) {
 
   return (
      <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-2 items-center">
         <Input 
-            placeholder="Buscar por cliente ou ID do boleto..."
+            placeholder="Buscar por cliente ou ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full" 
+            className="w-full sm:w-64" 
         />
         <Select value={viewFilter} onValueChange={(value: typeof viewFilter) => setViewFilter(value)}>
-            <SelectTrigger className="w-full sm:w-[320px]">
+            <SelectTrigger className="w-full sm:flex-1">
                 <SelectValue placeholder="Filtrar por status..." />
             </SelectTrigger>
             <SelectContent>
