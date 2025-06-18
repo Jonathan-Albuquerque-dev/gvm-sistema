@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Calculator, PlusCircle, HandCoins, ReceiptText, Loader2, MoreVertical, Edit, Trash2, FileDown, FileText, CheckCircle2 } from 'lucide-react';
+import { DollarSign, Calculator, PlusCircle, HandCoins, ReceiptText, Loader2, MoreVertical, Edit, Trash2, FileDown, FileText, CheckCircle2, Landmark, ShoppingCart } from 'lucide-react';
 import type { Budget, VariableCost, FixedCost, CostCategory } from '@/types';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
@@ -110,13 +110,24 @@ export default function CostControlPage() {
       unsubscribeFixedCosts();
       unsubscribeVariableCosts();
     };
-  }, [toast]);
+  }, []); // Changed dependency array from [toast] to []
 
   useEffect(() => {
     const today = new Date();
     const currentMonthBudgets = approvedBudgets.filter(b => {
-        const budgetDate = b.updatedAt ? parseISO(b.updatedAt) : parseISO(b.createdAt);
-        return isSameMonth(budgetDate, today);
+        const budgetDateString = b.updatedAt || b.createdAt;
+         if (!budgetDateString || typeof budgetDateString !== 'string') {
+            return false;
+        }
+        try {
+            const budgetDate = parseISO(budgetDateString);
+             if (isNaN(budgetDate.getTime())) {
+                return false;
+            }
+            return isSameMonth(budgetDate, today);
+        } catch (error) {
+            return false;
+        }
     });
     
     setApprovedBudgetsThisMonthCount(currentMonthBudgets.length);
@@ -313,7 +324,7 @@ export default function CostControlPage() {
   if (isLoadingBudgets || isLoadingFixedCosts || isLoadingVariableCosts) {
     return (
       <>
-        <PageHeader title="Controle de Custos" description="Análise de margem, rentabilidade e despesas." />
+        <PageHeader title="Controle de Custos" description="Análise de despesas e custos operacionais." />
         <div className="flex flex-col items-center justify-center h-64 p-8 bg-card rounded-lg shadow">
           <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
           <p className="text-muted-foreground">Carregando dados de custos...</p>
@@ -540,7 +551,7 @@ export default function CostControlPage() {
 
         <Card className="lg:col-span-1">
           <CardHeader className="flex flex-row items-center gap-2">
-            <ShoppingCart className="h-5 w-5 text-primary" />
+            <ShoppingCart className="h-5 w-5 text-primary" /> {/* Changed icon */}
             <CardTitle>Breakdown de Custos Totais</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -580,4 +591,3 @@ export default function CostControlPage() {
   );
 }
     
-
