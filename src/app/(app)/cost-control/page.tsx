@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Calculator, TrendingUp, Percent, Landmark, ShoppingCart, PlusCircle, HandCoins, ReceiptText, Loader2, MoreVertical, Edit, Trash2, FileDown } from 'lucide-react';
+import { DollarSign, Calculator, PlusCircle, HandCoins, ReceiptText, Loader2, MoreVertical, Edit, Trash2, FileDown, FileText, CheckCircle2 } from 'lucide-react';
 import type { Budget, VariableCost, FixedCost, CostCategory } from '@/types';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
@@ -18,7 +18,8 @@ import { FixedCostForm } from '@/components/costs/fixed-cost-form';
 import { VariableCostForm } from '@/components/costs/variable-cost-form';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { format } from 'date-fns';
+import { format, parseISO, isSameMonth, startOfDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const categoryTranslations: Record<CostCategory, string> = {
   food: 'Alimentação',
@@ -35,7 +36,7 @@ const categoryTranslations: Record<CostCategory, string> = {
 
 export default function CostControlPage() {
   const [approvedBudgets, setApprovedBudgets] = useState<Budget[]>([]);
-  const [isLoadingBudgets, setIsLoadingBudgets] = useState(true);
+  const [isLoadingBudgets, setIsLoadingBudgets] useState(true);
   const [fixedCosts, setFixedCosts] = useState<FixedCost[]>([]);
   const [isLoadingFixedCosts, setIsLoadingFixedCosts] = useState(true);
   const [variableCosts, setVariableCosts] = useState<VariableCost[]>([]);
@@ -47,15 +48,16 @@ export default function CostControlPage() {
   const [isVariableCostDialogOpen, setIsVariableCostDialogOpen] = useState(false);
   const [variableCostToEdit, setVariableCostToEdit] = useState<VariableCost | null>(null);
 
+  const [approvedBudgetsThisMonthCount, setApprovedBudgetsThisMonthCount] = useState(0);
+  const [approvedBudgetsThisMonthValue, setApprovedBudgetsThisMonthValue] = useState(0);
+  const [overallApprovedBudgetsCount, setOverallApprovedBudgetsCount] = useState(0);
+  const [overallRevenueTotal, setOverallRevenueTotal] = useState(0);
 
-  const [receitaTotal, setReceitaTotal] = useState(0);
   const [custoMaterialTotal, setCustoMaterialTotal] = useState(0);
   const [custosVariaveisTotal, setCustosVariaveisTotal] = useState(0);
   const [custosFixosTotal, setCustosFixosTotal] = useState(0);
   const [custoTotal, setCustoTotal] = useState(0);
-  const [lucroTotal, setLucroTotal] = useState(0);
-  const [margemMedia, setMargemMedia] = useState(0);
-  const [approvedBudgetsCount, setApprovedBudgetsCount] = useState(0);
+  
 
   useEffect(() => {
     setIsLoadingBudgets(true);
@@ -111,11 +113,17 @@ export default function CostControlPage() {
   }, [toast]);
 
   useEffect(() => {
-    const currentApprovedBudgetsCount = approvedBudgets.length;
-    setApprovedBudgetsCount(currentApprovedBudgetsCount);
-
-    const currentReceitaTotal = approvedBudgets.reduce((sum, b) => sum + b.totalAmount, 0);
-    setReceitaTotal(currentReceitaTotal);
+    const today = new Date();
+    const currentMonthBudgets = approvedBudgets.filter(b => {
+        const budgetDate = b.updatedAt ? parseISO(b.updatedAt) : parseISO(b.createdAt);
+        return isSameMonth(budgetDate, today);
+    });
+    
+    setApprovedBudgetsThisMonthCount(currentMonthBudgets.length);
+    setApprovedBudgetsThisMonthValue(currentMonthBudgets.reduce((sum, b) => sum + b.totalAmount, 0));
+    
+    setOverallApprovedBudgetsCount(approvedBudgets.length);
+    setOverallRevenueTotal(approvedBudgets.reduce((sum, b) => sum + b.totalAmount, 0));
 
     const currentCustoMaterialTotal = approvedBudgets.reduce((sum, b) => sum + b.materialCostInternal, 0);
     setCustoMaterialTotal(currentCustoMaterialTotal);
@@ -128,12 +136,6 @@ export default function CostControlPage() {
 
     const currentCustoTotal = currentCustoMaterialTotal + currentCustosVariaveisTotal + currentCustosFixosTotal;
     setCustoTotal(currentCustoTotal);
-
-    const currentLucroTotal = currentReceitaTotal - currentCustoTotal;
-    setLucroTotal(currentLucroTotal);
-
-    const currentMargemMedia = currentReceitaTotal > 0 ? (currentLucroTotal / currentReceitaTotal) * 100 : 0;
-    setMargemMedia(currentMargemMedia);
 
   }, [approvedBudgets, fixedCosts, variableCosts]);
 
@@ -149,7 +151,7 @@ export default function CostControlPage() {
   const percentCustoMaterial = custoTotal > 0 ? (custoMaterialTotal / custoTotal) * 100 : 0;
   const percentCustosVariaveis = custoTotal > 0 ? (custosVariaveisTotal / custoTotal) * 100 : 0;
   const percentCustosFixos = custoTotal > 0 ? (custosFixosTotal / custoTotal) * 100 : 0;
-  const custoMedioPorProjeto = approvedBudgetsCount > 0 ? custoTotal / approvedBudgetsCount : 0;
+  const custoMedioPorProjeto = overallApprovedBudgetsCount > 0 ? custoTotal / overallApprovedBudgetsCount : 0;
 
   const handleOpenFixedCostDialog = (cost: FixedCost | null = null) => {
     setFixedCostToEdit(cost);
@@ -200,27 +202,24 @@ export default function CostControlPage() {
     currentY += 8;
     pdfDoc.setFontSize(10);
     pdfDoc.setFont('helvetica', 'normal');
-    pdfDoc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pageWidth / 2, currentY, { align: 'center' });
+    pdfDoc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm', {locale: ptBR})}`, pageWidth / 2, currentY, { align: 'center' });
     currentY += 12;
 
-    // Seção de KPIs
     pdfDoc.setFontSize(12);
     pdfDoc.setFont('helvetica', 'bold');
-    pdfDoc.text('Resumo Financeiro (Geral)', margin, currentY);
+    pdfDoc.text('Resumo Financeiro e de Custos (Geral)', margin, currentY);
     currentY += 7;
     pdfDoc.setFontSize(10);
     pdfDoc.setFont('helvetica', 'normal');
 
     const kpiData = [
-      { label: "Receita Total (Orçamentos Aprovados):", value: formatCurrency(receitaTotal) },
-      { label: "Custo Material Total (Orçamentos Aprovados):", value: formatCurrency(custoMaterialTotal) },
+      { label: "Receita Total (Orçamentos Aprovados - Geral):", value: formatCurrency(overallRevenueTotal) },
+      { label: "Custo Material Total (Orçamentos Aprovados - Geral):", value: formatCurrency(custoMaterialTotal) },
       { label: "Custos Variáveis Totais (Lançados):", value: formatCurrency(custosVariaveisTotal) },
       { label: "Custos Fixos Totais (Mensais):", value: formatCurrency(custosFixosTotal) },
       { label: "Custo Total Geral:", value: formatCurrency(custoTotal) },
-      { label: "Lucro Total Geral:", value: formatCurrency(lucroTotal) },
-      { label: "Margem de Lucro Média:", value: formatPercent(margemMedia) },
-      { label: "Número de Orçamentos Aprovados:", value: approvedBudgetsCount.toString() },
-      { label: "Custo Médio por Projeto Aprovado:", value: formatCurrency(custoMedioPorProjeto) },
+      { label: "Número de Orçamentos Aprovados (Total Geral):", value: overallApprovedBudgetsCount.toString() },
+      { label: "Custo Médio por Projeto Aprovado (Geral):", value: formatCurrency(custoMedioPorProjeto) },
     ];
 
     kpiData.forEach(kpi => {
@@ -230,7 +229,6 @@ export default function CostControlPage() {
     });
     currentY += 5;
 
-    // Seção de Custos Fixos
     if (fixedCosts.length > 0) {
       if (currentY > pdfDoc.internal.pageSize.getHeight() - 40) { pdfDoc.addPage(); currentY = 20; }
       pdfDoc.setFontSize(12);
@@ -241,7 +239,7 @@ export default function CostControlPage() {
       const fixedCostsRows = fixedCosts.map(cost => [
         cost.description,
         categoryTranslations[cost.category as CostCategory] || cost.category,
-        cost.amount.toFixed(2)
+        cost.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       ]);
       autoTable(pdfDoc, {
         head: [fixedCostsColumns],
@@ -260,7 +258,6 @@ export default function CostControlPage() {
       currentY += 10;
     }
 
-    // Seção de Custos Variáveis
     if (variableCosts.length > 0) {
       if (currentY > pdfDoc.internal.pageSize.getHeight() - 40) { pdfDoc.addPage(); currentY = 20; }
       pdfDoc.setFontSize(12);
@@ -270,9 +267,9 @@ export default function CostControlPage() {
       const variableCostsColumns = ["Descrição", "Data", "Categoria", "Valor (R$)"];
       const variableCostsRows = variableCosts.map(cost => [
         cost.description,
-        format(new Date(cost.date), 'dd/MM/yyyy'),
+        format(parseISO(cost.date), 'dd/MM/yyyy', {locale: ptBR}),
         categoryTranslations[cost.category as CostCategory] || cost.category,
-        cost.amount.toFixed(2)
+        cost.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       ]);
        autoTable(pdfDoc, {
         head: [variableCostsColumns],
@@ -291,7 +288,6 @@ export default function CostControlPage() {
       currentY += 10;
     }
     
-    // Seção Breakdown de Custos Totais
     if (currentY > pdfDoc.internal.pageSize.getHeight() - 50) { pdfDoc.addPage(); currentY = 20; }
     pdfDoc.setFontSize(12);
     pdfDoc.setFont('helvetica', 'bold');
@@ -330,7 +326,7 @@ export default function CostControlPage() {
 
   return (
     <>
-      <PageHeader title="Controle de Custos" description="Análise de margem, rentabilidade e despesas.">
+      <PageHeader title="Controle de Custos" description="Análise de despesas e custos operacionais.">
         <Button 
           onClick={handleGenerateCostReportPdf} 
           variant="outline" 
@@ -340,17 +336,17 @@ export default function CostControlPage() {
         </Button>
       </PageHeader>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+      <div className="grid gap-4 md:grid-cols-2 mb-6"> {/* Changed to md:grid-cols-2 */}
         <Card className={kpiCardBaseClasses}>
           <CardHeader className="p-4 pb-0">
             <div className={cn(kpiIconWrapperBaseClasses, "bg-[hsl(var(--status-success-background))] text-[hsl(var(--status-success-foreground))]")}>
-              <DollarSign className="h-6 w-6" />
+              <CheckCircle2 className="h-6 w-6" /> {/* Icon changed */}
             </div>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className={kpiValueClasses}>{formatCurrency(receitaTotal)}</div>
-            <CardTitle className={kpiTitleClasses}>Receita Total</CardTitle>
-            <p className={kpiSubtitleClasses}>{approvedBudgetsCount} orçamentos aprovados</p>
+            <div className={kpiValueClasses}>{approvedBudgetsThisMonthCount}</div>
+            <CardTitle className={kpiTitleClasses}>Orçamentos Aprovados no Mês</CardTitle>
+            <p className={kpiSubtitleClasses}>Faturamento no mês: {formatCurrency(approvedBudgetsThisMonthValue)}</p>
           </CardContent>
         </Card>
 
@@ -363,33 +359,7 @@ export default function CostControlPage() {
           <CardContent className="p-4 pt-0">
             <div className={kpiValueClasses}>{formatCurrency(custoTotal)}</div>
             <CardTitle className={kpiTitleClasses}>Custo Total</CardTitle>
-            <p className={kpiSubtitleClasses}>Material + Fixo + Variável</p>
-          </CardContent>
-        </Card>
-
-        <Card className={kpiCardBaseClasses}>
-          <CardHeader className="p-4 pb-0">
-            <div className={cn(kpiIconWrapperBaseClasses, "bg-[hsl(var(--status-info-background))] text-[hsl(var(--status-info-foreground))]")}>
-              <TrendingUp className="h-6 w-6" />
-            </div>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className={kpiValueClasses}>{formatCurrency(lucroTotal)}</div>
-            <CardTitle className={kpiTitleClasses}>Lucro Total</CardTitle>
-            <p className={kpiSubtitleClasses}>Receita - Custos</p>
-          </CardContent>
-        </Card>
-
-        <Card className={kpiCardBaseClasses}>
-          <CardHeader className="p-4 pb-0">
-            <div className={cn(kpiIconWrapperBaseClasses, "bg-[hsl(var(--status-purple-background))] text-[hsl(var(--status-purple-foreground))]")}>
-              <Percent className="h-6 w-6" />
-            </div>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className={kpiValueClasses}>{formatPercent(margemMedia)}</div>
-            <CardTitle className={kpiTitleClasses}>Margem Média</CardTitle>
-            <p className={kpiSubtitleClasses}>Margem de lucro</p>
+            <p className={kpiSubtitleClasses}>Material + Fixo + Variável (Geral)</p>
           </CardContent>
         </Card>
       </div>
@@ -610,3 +580,4 @@ export default function CostControlPage() {
   );
 }
     
+
