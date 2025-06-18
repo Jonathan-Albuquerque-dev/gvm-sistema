@@ -125,19 +125,22 @@ export default function BoletosPage() {
     const allParcelas: (BoletoParcela & { clientName: string; boletoId: string; totalInstallments: number })[] = [];
     boletos.forEach(boleto => {
       boleto.installments.forEach(parcela => {
-        allParcelas.push({
-          ...parcela,
-          clientName: boleto.clientName,
-          boletoId: boleto.id,
-          totalInstallments: boleto.numberOfInstallments,
-        });
+        // Filtra para incluir apenas parcelas pendentes ou vencidas
+        if (parcela.status === 'pendente' || parcela.status === 'vencido') {
+          allParcelas.push({
+            ...parcela,
+            clientName: boleto.clientName,
+            boletoId: boleto.id,
+            totalInstallments: boleto.numberOfInstallments,
+          });
+        }
       });
     });
 
     if (allParcelas.length === 0) {
         toast({
-            title: "Nenhuma parcela encontrada",
-            description: "Não há parcelas nos boletos cadastrados.",
+            title: "Nenhuma parcela pendente ou vencida",
+            description: "Não há parcelas com status 'Pendente' ou 'Vencido' nos boletos cadastrados.",
             variant: "default"
         });
         return;
@@ -151,7 +154,7 @@ export default function BoletosPage() {
     let currentY = 22;
 
     doc.setFontSize(18);
-    doc.text('Relatório Geral de Parcelas de Boletos', margin, currentY);
+    doc.text('Relatório de Parcelas Pendentes e Vencidas', margin, currentY);
     currentY += 8;
     doc.setFontSize(11);
     doc.setTextColor(100);
@@ -188,9 +191,9 @@ export default function BoletosPage() {
       },
     });
     
-    const fileName = 'relatorio_geral_parcelas.pdf';
+    const fileName = 'relatorio_parcelas_pendentes_vencidas.pdf';
     doc.save(fileName);
-    toast({ title: 'PDF de Parcelas Gerado', description: 'O relatório geral de parcelas de boletos foi gerado.' });
+    toast({ title: 'PDF de Parcelas Gerado', description: 'O relatório de parcelas pendentes e vencidas foi gerado.' });
   };
 
 
@@ -300,3 +303,4 @@ export default function BoletosPage() {
     
 
     
+
