@@ -7,32 +7,19 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { BoletoList } from '@/components/boletos/boleto-list';
-import { PlusCircle, ReceiptText, Landmark, CalendarCheck2, Loader2, AlertTriangle as AlertTriangleIcon, CalendarClock, FileWarning, FileDown, Filter } from 'lucide-react';
-import type { Boleto, BoletoParcelaStatus } from '@/types';
+import { PlusCircle, ReceiptText, Landmark, CalendarCheck2, Loader2, AlertTriangle as AlertTriangleIcon, CalendarClock, FileWarning, FileDown } from 'lucide-react';
+import type { Boleto } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { format, isSameMonth, parseISO, isBefore, addDays, startOfDay, differenceInDays } from 'date-fns';
+import { format, isSameMonth, parseISO, isBefore, startOfDay, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-type PdfStatusFilterType = 'all' | 'Quitado' | 'Vencido' | 'Pendente' | 'Cancelado';
-
-const pdfStatusFilterOptions: { value: PdfStatusFilterType; label: string }[] = [
-  { value: 'all', label: 'Todos os Status' },
-  { value: 'Quitado', label: 'Quitado' },
-  { value: 'Vencido', label: 'Vencido' },
-  { value: 'Pendente', label: 'Pendente/A Vencer' },
-  { value: 'Cancelado', label: 'Cancelado' },
-];
-
 
 export default function BoletosPage() {
   const [boletos, setBoletos] = useState<Boleto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [pdfStatusFilter, setPdfStatusFilter] = useState<PdfStatusFilterType>('all');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -153,19 +140,10 @@ export default function BoletosPage() {
   };
 
   const handleGenerateAllBoletosPdf = () => {
-    const boletosToReport = boletos.filter(boleto => {
-      if (pdfStatusFilter === 'all') return true;
-      const status = getAggregatedStatusForPdf(boleto);
-      if (pdfStatusFilter === 'Pendente') {
-        return status.startsWith('Próx:') || status === 'Pendente';
-      }
-      return status === pdfStatusFilter;
-    });
-
-    if (boletosToReport.length === 0) {
+    if (boletos.length === 0) {
       toast({
           title: "Nenhum boleto para listar",
-          description: `Não há boletos com o status "${pdfStatusFilterOptions.find(opt => opt.value === pdfStatusFilter)?.label || pdfStatusFilter}" para gerar o PDF.`,
+          description: "Não há boletos para gerar o PDF.",
           variant: "default"
       });
       return;
@@ -177,23 +155,17 @@ export default function BoletosPage() {
     let currentY = 22;
 
     doc.setFontSize(18);
-    const reportTitle = pdfStatusFilter === 'all' ? 'Relatório de Boletos' : `Relatório de Boletos - ${pdfStatusFilterOptions.find(opt => opt.value === pdfStatusFilter)?.label || pdfStatusFilter}`;
-    doc.text(reportTitle, margin, currentY);
+    doc.text('Relatório Geral de Boletos', margin, currentY);
     currentY += 8;
     doc.setFontSize(11);
     doc.setTextColor(100);
     doc.text(`Relatório gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, margin, currentY);
-    if (pdfStatusFilter !== 'all') {
-      currentY += 6;
-      doc.setFontSize(10);
-      doc.text(`Filtro de Status Aplicado: ${pdfStatusFilterOptions.find(opt => opt.value === pdfStatusFilter)?.label || pdfStatusFilter}`, margin, currentY);
-    }
     currentY += 10;
     
     const tableColumn = ["ID Boleto", "Cliente", "Nº Parc.", "Valor Total", "Venc. 1ª Parc.", "Status"];
     const tableRows: (string | number)[][] = [];
 
-    boletosToReport.forEach(boleto => {
+    boletos.forEach(boleto => {
       const boletoDataRow = [
         boleto.id.substring(0, 8) + '...',
         boleto.clientName,
@@ -220,9 +192,9 @@ export default function BoletosPage() {
       },
     });
     
-    const fileName = `relatorio_boletos${pdfStatusFilter !== 'all' ? '_' + pdfStatusFilter.toLowerCase() : ''}.pdf`;
+    const fileName = 'relatorio_geral_boletos.pdf';
     doc.save(fileName);
-    toast({ title: 'PDF Gerado', description: `O relatório de boletos (${pdfStatusFilterOptions.find(opt => opt.value === pdfStatusFilter)?.label || pdfStatusFilter}) foi gerado.` });
+    toast({ title: 'PDF Gerado', description: 'O relatório geral de boletos foi gerado.' });
   };
 
 
@@ -243,23 +215,10 @@ export default function BoletosPage() {
     <>
       <PageHeader title="Boletos" description="Gerencie seus boletos a receber.">
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Select value={pdfStatusFilter} onValueChange={(value) => setPdfStatusFilter(value as PdfStatusFilterType)}>
-                <SelectTrigger className="w-full sm:w-[180px] h-9">
-                    <Filter className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
-                    <SelectValue placeholder="Filtrar PDF por status" />
-                </SelectTrigger>
-                <SelectContent>
-                    {pdfStatusFilterOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
             <Button onClick={handleGenerateAllBoletosPdf} variant="outline" disabled={isLoading || boletos.length === 0}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
-              Gerar PDF
+              Relatório Geral PDF
             </Button>
-          </div>
           <Link href="/boletos/new">
             <Button disabled={isLoading}>
               <PlusCircle className="mr-2 h-4 w-4" /> Novo Boleto
@@ -340,6 +299,8 @@ export default function BoletosPage() {
     </>
   );
 }
+    
+
     
 
     

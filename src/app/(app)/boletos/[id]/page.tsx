@@ -7,7 +7,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Loader2, AlertTriangle, Edit, DollarSign, CalendarDays, Hash, Info, UserCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertTriangle, Edit, DollarSign, CalendarDays, Hash, Info, UserCircle, FileDown } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import type { Boleto, BoletoParcela, BoletoParcelaStatus, Client } from '@/types';
@@ -17,6 +17,8 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const parcelaStatusTranslations: Record<BoletoParcelaStatus, string> = {
   pendente: 'Pendente',
@@ -59,7 +61,6 @@ export default function BoletoDetailPage() {
       if (boletoDocSnap.exists()) {
         let fetchedBoleto = { id: boletoDocSnap.id, ...boletoDocSnap.data() } as Boleto;
         
-        // Auto-update overdue installments
         const today = startOfDay(new Date());
         let installmentsNeedUpdate = false;
         const updatedInstallments = fetchedBoleto.installments.map(inst => {
@@ -78,13 +79,8 @@ export default function BoletoDetailPage() {
             });
             fetchedBoleto.installments = updatedInstallments;
             fetchedBoleto.updatedAt = new Date().toISOString();
-            // No toast for automatic updates to avoid being too verbose,
-            // but you can add one if desired.
-            // toast({ title: "Status Atualizado", description: "Algumas parcelas foram marcadas como vencidas."});
           } catch (updateError) {
             console.error("Erro ao atualizar automaticamente status das parcelas:", updateError);
-            // Continue with fetchedBoleto even if auto-update fails, but log it.
-            // Optionally show a less intrusive error message.
           }
         }
         
@@ -145,6 +141,100 @@ export default function BoletoDetailPage() {
     }
   };
 
+  const handleGenerateDetailedPdf = () => {
+    if (!boleto) {
+        toast({ title: "Erro", description: "Dados do boleto não carregados.", variant: "destructive" });
+        return;
+    }
+
+    const pdf = new jsPDF();
+    const margin = 14;
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    let currentY = 20;
+
+    pdf.setFontSize(16);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`Detalhes do Boleto - ${boleto.clientName}`, margin, currentY);
+    currentY += 8;
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`ID do Boleto: ${boleto.id.substring(0,12)}...`, margin, currentY);
+    currentY += 5;
+    pdf.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, margin, currentY);
+    currentY += 10;
+
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Resumo do Boleto', margin, currentY);
+    currentY += 6;
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    
+    const summaryData = [
+        `Cliente: ${boleto.clientName} ${client?.companyName ? `(${client.companyName})` : ''}`,
+        `Valor Total: ${boleto.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`,
+        `Número de Parcelas: ${boleto.numberOfInstallments}`,
+        `Vencimento da 1ª Parcela: ${format(parseISO(boleto.initialDueDate), 'dd/MM/yyyy', { locale: ptBR })}`,
+        `Data de Criação: ${format(parseISO(boleto.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
+    ];
+    if(boleto.updatedAt) summaryData.push(`Última Atualização: ${format(parseISO(boleto.updatedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`);
+
+    summaryData.forEach(item => {
+        pdf.text(item, margin, currentY);
+        currentY += 5;
+    });
+
+    if (boleto.observations) {
+        currentY += 3;
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Observações:', margin, currentY);
+        currentY += 5;
+        pdf.setFont('helvetica', 'normal');
+        const obsLines = pdf.splitTextToSize(boleto.observations, pageWidth - (margin * 2));
+        pdf.text(obsLines, margin, currentY);
+        currentY += obsLines.length * 5;
+    }
+    currentY += 8;
+
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Detalhes das Parcelas', margin, currentY);
+    currentY += 7;
+
+    const tableColumn = ["Nº Parcela", "Valor (R$)", "Vencimento", "Status", "Data Pagamento"];
+    const tableRows: (string | number)[][] = [];
+
+    boleto.installments.forEach(inst => {
+        const parcelaData = [
+            `${inst.parcelNumber}/${boleto.numberOfInstallments}`,
+            inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+            format(parseISO(inst.dueDate), "dd/MM/yyyy", { locale: ptBR }),
+            parcelaStatusTranslations[inst.status],
+            inst.paymentDate ? format(parseISO(inst.paymentDate), "dd/MM/yyyy", { locale: ptBR }) : '-',
+        ];
+        tableRows.push(parcelaData);
+    });
+
+    autoTable(pdf, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: currentY,
+        theme: 'striped',
+        headStyles: { fillColor: [22, 160, 133], textColor: 255, fontStyle: 'bold' },
+        columnStyles: {
+            0: { cellWidth: 25, halign: 'center' },
+            1: { cellWidth: 35, halign: 'right' },
+            2: { cellWidth: 30, halign: 'center' },
+            3: { cellWidth: 30, halign: 'center' },
+            4: { cellWidth: 30, halign: 'center' },
+        },
+    });
+    
+    const fileName = `boleto_detalhado_${boleto.clientName.replace(/\s+/g, '_')}_${boleto.id.substring(0,6)}.pdf`;
+    pdf.save(fileName);
+    toast({ title: 'PDF Detalhado Gerado!', description: `O PDF para o boleto de ${boleto.clientName} foi gerado.` });
+  };
+
   const DetailItem = ({ label, value, Icon, currency = false, className = '' }: { label: string; value?: string | number | null; Icon?: React.ElementType, currency?: boolean, className?: string }) => (
     value !== undefined && value !== null ? (
       <div className={`py-2 ${className}`}>
@@ -189,7 +279,10 @@ export default function BoletoDetailPage() {
         title={`Boletos de ${boleto.clientName}`}
         description={`Detalhes do conjunto de boletos ID: ${boletoId.substring(0,8)}...`}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" onClick={handleGenerateDetailedPdf} disabled={isLoading}>
+                <FileDown className="mr-2 h-4 w-4" /> Gerar PDF Detalhado
+            </Button>
             <Link href={`/boletos/${boletoId}/edit`}>
                 <Button variant="outline"><Edit className="mr-2 h-4 w-4" /> Editar Boletos</Button>
             </Link>
@@ -281,3 +374,5 @@ export default function BoletoDetailPage() {
     </>
   );
 }
+
+    
