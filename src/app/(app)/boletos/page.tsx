@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { BoletoList } from '@/components/boletos/boleto-list';
 import { PlusCircle, ReceiptText, Landmark, CalendarCheck2, Loader2, AlertTriangle as AlertTriangleIcon, CalendarClock, FileWarning, FileDown } from 'lucide-react';
-import type { Boleto } from '@/types';
+import type { Boleto, BoletoParcela, BoletoParcelaStatus } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +16,13 @@ import { format, isSameMonth, parseISO, isBefore, startOfDay, differenceInDays }
 import { ptBR } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+
+const parcelaStatusTranslations: Record<BoletoParcelaStatus, string> = {
+  pendente: 'Pendente',
+  pago: 'Pago',
+  vencido: 'Vencido',
+  cancelado: 'Cancelado',
+};
 
 export default function BoletosPage() {
   const [boletos, setBoletos] = useState<Boleto[]>([]);
@@ -105,49 +112,38 @@ export default function BoletosPage() {
 
   const formatCurrency = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  const getAggregatedStatusForPdf = (boleto: Boleto): string => {
-    const today = startOfDay(new Date());
-    let allPaid = true;
-    let hasOverdue = false;
-    let nextDueDate: Date | null = null;
-
-    if (boleto.installments.length === 0) return "Pendente";
-
-    for (const installment of boleto.installments) {
-        if (installment.status !== 'pago' && installment.status !== 'cancelado') {
-            allPaid = false;
-            const dueDate = parseISO(installment.dueDate);
-            if (dueDate < today && installment.status !== 'pago') {
-                hasOverdue = true;
-            }
-            if (!nextDueDate || dueDate < nextDueDate) {
-                if (installment.status === 'pendente' || installment.status === 'vencido') {
-                    nextDueDate = dueDate;
-                }
-            }
-        }
-    }
-
-    if (allPaid) return "Quitado";
-    if (hasOverdue) return "Vencido";
-    
-    const allCancelled = boleto.installments.every(inst => inst.status === 'cancelado');
-    if (allCancelled) return "Cancelado";
-    
-    if (nextDueDate) return `Próx: ${format(nextDueDate, 'dd/MM/yy', { locale: ptBR })}`;
-
-    return "Pendente";
-  };
-
-  const handleGenerateAllBoletosPdf = () => {
+  const handleGenerateAllParcelasPdf = () => {
     if (boletos.length === 0) {
       toast({
           title: "Nenhum boleto para listar",
-          description: "Não há boletos para gerar o PDF.",
+          description: "Não há boletos cadastrados para gerar o relatório de parcelas.",
           variant: "default"
       });
       return;
     }
+
+    const allParcelas: (BoletoParcela & { clientName: string; boletoId: string; totalInstallments: number })[] = [];
+    boletos.forEach(boleto => {
+      boleto.installments.forEach(parcela => {
+        allParcelas.push({
+          ...parcela,
+          clientName: boleto.clientName,
+          boletoId: boleto.id,
+          totalInstallments: boleto.numberOfInstallments,
+        });
+      });
+    });
+
+    if (allParcelas.length === 0) {
+        toast({
+            title: "Nenhuma parcela encontrada",
+            description: "Não há parcelas nos boletos cadastrados.",
+            variant: "default"
+        });
+        return;
+    }
+    
+    allParcelas.sort((a, b) => parseISO(a.dueDate).getTime() - parseISO(b.dueDate).getTime());
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -155,26 +151,26 @@ export default function BoletosPage() {
     let currentY = 22;
 
     doc.setFontSize(18);
-    doc.text('Relatório Geral de Boletos', margin, currentY);
+    doc.text('Relatório Geral de Parcelas de Boletos', margin, currentY);
     currentY += 8;
     doc.setFontSize(11);
     doc.setTextColor(100);
     doc.text(`Relatório gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, margin, currentY);
     currentY += 10;
     
-    const tableColumn = ["ID Boleto", "Cliente", "Nº Parc.", "Valor Total", "Venc. 1ª Parc.", "Status"];
+    const tableColumn = ["Cliente", "ID Boleto", "Nº Parcela", "Vencimento", "Valor Parcela (R$)", "Status Parcela"];
     const tableRows: (string | number)[][] = [];
 
-    boletos.forEach(boleto => {
-      const boletoDataRow = [
-        boleto.id.substring(0, 8) + '...',
-        boleto.clientName,
-        boleto.numberOfInstallments,
-        formatCurrency(boleto.totalAmount),
-        format(parseISO(boleto.initialDueDate), "dd/MM/yyyy", { locale: ptBR }),
-        getAggregatedStatusForPdf(boleto)
+    allParcelas.forEach(parcela => {
+      const parcelaDataRow = [
+        parcela.clientName,
+        parcela.boletoId.substring(0, 8) + '...',
+        `${parcela.parcelNumber}/${parcela.totalInstallments}`,
+        format(parseISO(parcela.dueDate), "dd/MM/yyyy", { locale: ptBR }),
+        formatCurrency(parcela.value),
+        parcelaStatusTranslations[parcela.status] || parcela.status
       ];
-      tableRows.push(boletoDataRow);
+      tableRows.push(parcelaDataRow);
     });
 
     autoTable(doc, {
@@ -183,18 +179,18 @@ export default function BoletosPage() {
       startY: currentY,
       headStyles: { fillColor: [22, 160, 133] }, 
       columnStyles: {
-        0: { cellWidth: 25 }, 
-        1: { cellWidth: 'auto' }, 
-        2: { cellWidth: 20, halign: 'center' }, 
-        3: { cellWidth: 35, halign: 'right' }, 
-        4: { cellWidth: 30, halign: 'center' }, 
-        5: { cellWidth: 25, halign: 'center' }, 
+        0: { cellWidth: 'auto' }, 
+        1: { cellWidth: 25 }, 
+        2: { cellWidth: 22, halign: 'center' }, 
+        3: { cellWidth: 25, halign: 'center' }, 
+        4: { cellWidth: 35, halign: 'right' }, 
+        5: { cellWidth: 28, halign: 'center' }, 
       },
     });
     
-    const fileName = 'relatorio_geral_boletos.pdf';
+    const fileName = 'relatorio_geral_parcelas.pdf';
     doc.save(fileName);
-    toast({ title: 'PDF Gerado', description: 'O relatório geral de boletos foi gerado.' });
+    toast({ title: 'PDF de Parcelas Gerado', description: 'O relatório geral de parcelas de boletos foi gerado.' });
   };
 
 
@@ -215,9 +211,9 @@ export default function BoletosPage() {
     <>
       <PageHeader title="Boletos" description="Gerencie seus boletos a receber.">
         <div className="flex items-center gap-2 flex-wrap">
-            <Button onClick={handleGenerateAllBoletosPdf} variant="outline" disabled={isLoading || boletos.length === 0}>
+            <Button onClick={handleGenerateAllParcelasPdf} variant="outline" disabled={isLoading || boletos.length === 0}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
-              Relatório Geral PDF
+              Relatório de Parcelas PDF
             </Button>
           <Link href="/boletos/new">
             <Button disabled={isLoading}>
