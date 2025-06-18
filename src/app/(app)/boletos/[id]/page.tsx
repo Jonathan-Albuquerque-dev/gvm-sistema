@@ -11,7 +11,7 @@ import { ArrowLeft, Loader2, AlertTriangle, Edit, DollarSign, CalendarDays, Hash
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import type { Boleto, BoletoParcela, BoletoParcelaStatus, Client } from '@/types';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -54,10 +54,40 @@ export default function BoletoDetailPage() {
     setError(null);
     try {
       const boletoDocRef = doc(db, 'boletos', boletoId);
-      const boletoDocSnap = await getDoc(boletoDocRef);
+      let boletoDocSnap = await getDoc(boletoDocRef);
 
       if (boletoDocSnap.exists()) {
-        const fetchedBoleto = { id: boletoDocSnap.id, ...boletoDocSnap.data() } as Boleto;
+        let fetchedBoleto = { id: boletoDocSnap.id, ...boletoDocSnap.data() } as Boleto;
+        
+        // Auto-update overdue installments
+        const today = startOfDay(new Date());
+        let installmentsNeedUpdate = false;
+        const updatedInstallments = fetchedBoleto.installments.map(inst => {
+          if (inst.status === 'pendente' && isBefore(startOfDay(parseISO(inst.dueDate)), today)) {
+            installmentsNeedUpdate = true;
+            return { ...inst, status: 'vencido' as BoletoParcelaStatus };
+          }
+          return inst;
+        });
+
+        if (installmentsNeedUpdate) {
+          try {
+            await updateDoc(boletoDocRef, { 
+              installments: updatedInstallments,
+              updatedAt: new Date().toISOString(),
+            });
+            fetchedBoleto.installments = updatedInstallments;
+            fetchedBoleto.updatedAt = new Date().toISOString();
+            // No toast for automatic updates to avoid being too verbose,
+            // but you can add one if desired.
+            // toast({ title: "Status Atualizado", description: "Algumas parcelas foram marcadas como vencidas."});
+          } catch (updateError) {
+            console.error("Erro ao atualizar automaticamente status das parcelas:", updateError);
+            // Continue with fetchedBoleto even if auto-update fails, but log it.
+            // Optionally show a less intrusive error message.
+          }
+        }
+        
         setBoleto(fetchedBoleto);
 
         if (fetchedBoleto.clientId) {
@@ -94,8 +124,6 @@ export default function BoletoDetailPage() {
         if (newStatus === 'pago' && !inst.paymentDate) {
             updatedInst.paymentDate = new Date().toISOString();
         } else if (newStatus !== 'pago') {
-            // Remove paymentDate if status is no longer 'pago' and it was previously set
-            // This might be too aggressive, consider if paymentDate should be preserved for historical reasons
              delete updatedInst.paymentDate;
         }
         return updatedInst;
