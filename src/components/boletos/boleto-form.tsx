@@ -14,8 +14,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import type { Boleto, BoletoParcela, Client } from '@/types';
-import { useEffect, useState, useCallback } from 'react';
-import { CalendarIcon, Loader2, PlusCircle, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { CalendarIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, addDays, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -93,39 +93,52 @@ export function BoletoForm({ boleto, onSubmitSuccess }: BoletoFormProps) {
     }
   }, [boleto, form]);
   
-  const watchedValues = form.watch(['totalAmount', 'numberOfInstallments', 'initialDueDate']);
-
-  const calculateAndSetInstallments = useCallback(() => {
-    const { totalAmount, numberOfInstallments, initialDueDate } = form.getValues();
-
-    if (totalAmount > 0 && numberOfInstallments > 0 && initialDueDate) {
-      const installmentValue = parseFloat((totalAmount / numberOfInstallments).toFixed(2));
-      const newInstallments: BoletoParcela[] = [];
-      let accumulatedValue = 0;
-
-      for (let i = 0; i < numberOfInstallments; i++) {
-        let currentInstallmentValue = installmentValue;
-        if (i === numberOfInstallments - 1) { // Last installment adjusts for rounding
-          currentInstallmentValue = parseFloat((totalAmount - accumulatedValue).toFixed(2));
-        }
-        
-        newInstallments.push({
-          parcelNumber: i + 1,
-          value: currentInstallmentValue,
-          dueDate: addDays(initialDueDate, i * 30).toISOString(),
-          status: 'pendente',
-        });
-        accumulatedValue += installmentValue; // Use original installmentValue for accumulation tracking before adjustment
-      }
-      setCalculatedInstallments(newInstallments);
-    } else {
-      setCalculatedInstallments([]);
-    }
-  }, [form]);
+  const totalAmountWatched = form.watch('totalAmount');
+  const numberOfInstallmentsWatched = form.watch('numberOfInstallments');
+  const initialDueDateWatched = form.watch('initialDueDate');
+  const { getValues } = form;
 
   useEffect(() => {
-    calculateAndSetInstallments();
-  }, [watchedValues, calculateAndSetInstallments]);
+    const currentTotalAmount = getValues('totalAmount');
+    const currentNumberOfInstallments = getValues('numberOfInstallments');
+    const currentInitialDueDate = getValues('initialDueDate');
+
+    if (currentTotalAmount > 0 && currentNumberOfInstallments > 0 && currentInitialDueDate instanceof Date && !isNaN(currentInitialDueDate.valueOf())) {
+      const installmentValue = parseFloat((currentTotalAmount / currentNumberOfInstallments).toFixed(2));
+      const newInstallmentsData: BoletoParcela[] = [];
+      let accumulatedValue = 0;
+
+      for (let i = 0; i < currentNumberOfInstallments; i++) {
+        let currentInstallmentValue = installmentValue;
+        if (i === currentNumberOfInstallments - 1) {
+          currentInstallmentValue = parseFloat(Math.max(0, currentTotalAmount - accumulatedValue).toFixed(2));
+        }
+        
+        newInstallmentsData.push({
+          parcelNumber: i + 1,
+          value: currentInstallmentValue,
+          dueDate: addDays(currentInitialDueDate, i * 30).toISOString(),
+          status: 'pendente',
+        });
+        accumulatedValue += installmentValue; 
+      }
+      
+      setCalculatedInstallments(prevInstallments => {
+        if (JSON.stringify(newInstallmentsData) !== JSON.stringify(prevInstallments)) {
+          return newInstallmentsData;
+        }
+        return prevInstallments;
+      });
+
+    } else {
+      setCalculatedInstallments(prevInstallments => {
+        if (prevInstallments.length > 0) {
+          return [];
+        }
+        return prevInstallments;
+      });
+    }
+  }, [totalAmountWatched, numberOfInstallmentsWatched, initialDueDateWatched, getValues]);
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -137,19 +150,74 @@ export function BoletoForm({ boleto, onSubmitSuccess }: BoletoFormProps) {
       return;
     }
 
-    if (calculatedInstallments.length === 0) {
-      toast({ title: "Erro", description: "Nenhuma parcela calculada. Verifique os valores.", variant: "destructive" });
-      setIsLoading(false);
-      return;
+    if (calculatedInstallments.length === 0 && values.totalAmount > 0 && values.numberOfInstallments > 0) {
+        // Attempt to recalculate one last time if submit happens before effect fully updates
+        const currentTotalAmount = values.totalAmount;
+        const currentNumberOfInstallments = values.numberOfInstallments;
+        const currentInitialDueDate = values.initialDueDate;
+        let finalCalculatedInstallments: BoletoParcela[] = [];
+
+        if (currentTotalAmount > 0 && currentNumberOfInstallments > 0 && currentInitialDueDate instanceof Date && !isNaN(currentInitialDueDate.valueOf())) {
+            const installmentValue = parseFloat((currentTotalAmount / currentNumberOfInstallments).toFixed(2));
+            let accumulatedValue = 0;
+            for (let i = 0; i < currentNumberOfInstallments; i++) {
+                let currentInstallmentValue = installmentValue;
+                if (i === currentNumberOfInstallments - 1) {
+                    currentInstallmentValue = parseFloat(Math.max(0, currentTotalAmount - accumulatedValue).toFixed(2));
+                }
+                finalCalculatedInstallments.push({
+                    parcelNumber: i + 1,
+                    value: currentInstallmentValue,
+                    dueDate: addDays(currentInitialDueDate, i * 30).toISOString(),
+                    status: 'pendente',
+                });
+                accumulatedValue += installmentValue;
+            }
+        }
+        if (finalCalculatedInstallments.length === 0) {
+             toast({ title: "Erro", description: "Nenhuma parcela calculada. Verifique os valores.", variant: "destructive" });
+             setIsLoading(false);
+             return;
+        }
+        // Use finalCalculatedInstallments for submission
+         const boletoData: Omit<Boleto, 'id' | 'createdAt' | 'updatedAt'> = {
+            clientId: values.clientId,
+            clientName: selectedClient.name,
+            totalAmount: values.totalAmount,
+            numberOfInstallments: values.numberOfInstallments,
+            initialDueDate: values.initialDueDate.toISOString(),
+            installments: finalCalculatedInstallments,
+            observations: values.observations || '',
+        };
+         try {
+            if (boleto && boleto.id) {
+                await updateDoc(doc(db, 'boletos', boleto.id), { ...boletoData, updatedAt: new Date().toISOString() });
+                toast({ title: 'Boleto Atualizado!', description: `Boleto para ${selectedClient.name} atualizado.` });
+            } else {
+                await addDoc(collection(db, 'boletos'), { ...boletoData, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+                toast({ title: 'Boleto Criado!', description: `Boleto para ${selectedClient.name} salvo.` });
+                form.reset({ clientId: '', totalAmount: 0, numberOfInstallments: 1, initialDueDate: new Date(), observations: ''});
+                setCalculatedInstallments([]);
+            }
+            if (onSubmitSuccess) onSubmitSuccess();
+        } catch (error: any) {
+            console.error("Erro ao salvar boleto (on submit):", error);
+            toast({ title: 'Erro ao Salvar Boleto', description: error.message, variant: 'destructive' });
+        } finally {
+            setIsLoading(false);
+        }
+        return; // Exit after attempting to save with recalculated installments
     }
 
+
+    // Original submission logic if calculatedInstallments is already populated
     const boletoData: Omit<Boleto, 'id' | 'createdAt' | 'updatedAt'> = {
       clientId: values.clientId,
       clientName: selectedClient.name,
       totalAmount: values.totalAmount,
       numberOfInstallments: values.numberOfInstallments,
       initialDueDate: values.initialDueDate.toISOString(),
-      installments: calculatedInstallments,
+      installments: calculatedInstallments, // Use state variable
       observations: values.observations || '',
     };
 
@@ -242,7 +310,7 @@ export function BoletoForm({ boleto, onSubmitSuccess }: BoletoFormProps) {
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button variant="outline" className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")} disabled={isLoading}>
-                          {field.value ? format(field.value, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+                          {field.value && field.value instanceof Date && !isNaN(field.value.valueOf()) ? format(field.value, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
@@ -298,7 +366,7 @@ export function BoletoForm({ boleto, onSubmitSuccess }: BoletoFormProps) {
         )}
         
         <div className="flex justify-end">
-          <Button type="submit" disabled={isLoading || isFetchingClients || calculatedInstallments.length === 0}>
+          <Button type="submit" disabled={isLoading || isFetchingClients}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {boleto ? 'Salvar Alterações' : 'Criar Boletos'}
           </Button>
@@ -307,3 +375,5 @@ export function BoletoForm({ boleto, onSubmitSuccess }: BoletoFormProps) {
     </Form>
   );
 }
+
+    
