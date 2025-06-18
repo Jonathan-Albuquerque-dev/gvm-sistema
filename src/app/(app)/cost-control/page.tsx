@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Calculator, PlusCircle, HandCoins, ReceiptText, Loader2, MoreVertical, Edit, Trash2, FileDown, TrendingUp, Percent } from 'lucide-react';
+import { DollarSign, Calculator, PlusCircle, HandCoins, ReceiptText, Loader2, MoreVertical, Edit, Trash2, FileDown, TrendingUp, Percent, Landmark, CheckCircle2 } from 'lucide-react';
 import type { Budget, VariableCost, FixedCost, CostCategory } from '@/types';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
@@ -18,7 +18,7 @@ import { FixedCostForm } from '@/components/costs/fixed-cost-form';
 import { VariableCostForm } from '@/components/costs/variable-cost-form';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { format, parseISO, isSameMonth, startOfDay } from 'date-fns';
+import { format, parseISO, isSameMonth, startOfMonth, startOfDay, getMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const categoryTranslations: Record<CostCategory, string> = {
@@ -50,14 +50,13 @@ export default function CostControlPage() {
   
   // State for KPIs
   const [overallRevenueTotal, setOverallRevenueTotal] = useState(0);
-  const [overallApprovedBudgetsCount, setOverallApprovedBudgetsCount] = useState(0);
   const [custoMaterialTotal, setCustoMaterialTotal] = useState(0);
   const [custosVariaveisTotal, setCustosVariaveisTotal] = useState(0);
   const [custosFixosTotal, setCustosFixosTotal] = useState(0);
   const [custoTotal, setCustoTotal] = useState(0);
   const [lucroTotalGeral, setLucroTotalGeral] = useState(0);
   const [margemLucroMedia, setMargemLucroMedia] = useState(0);
-  
+  const [approvedBudgetsCount, setApprovedBudgetsCount] = useState(0);
 
   useEffect(() => {
     setIsLoadingBudgets(true);
@@ -115,7 +114,7 @@ export default function CostControlPage() {
   useEffect(() => {
     const currentOverallRevenueTotal = approvedBudgets.reduce((sum, b) => sum + b.totalAmount, 0);
     setOverallRevenueTotal(currentOverallRevenueTotal);
-    setOverallApprovedBudgetsCount(approvedBudgets.length);
+    setApprovedBudgetsCount(approvedBudgets.length);
     
     const currentCustoMaterialTotal = approvedBudgets.reduce((sum, b) => sum + b.materialCostInternal, 0);
     setCustoMaterialTotal(currentCustoMaterialTotal);
@@ -149,7 +148,7 @@ export default function CostControlPage() {
   const percentCustoMaterial = custoTotal > 0 ? (custoMaterialTotal / custoTotal) * 100 : 0;
   const percentCustosVariaveis = custoTotal > 0 ? (custosVariaveisTotal / custoTotal) * 100 : 0;
   const percentCustosFixos = custoTotal > 0 ? (custosFixosTotal / custoTotal) * 100 : 0;
-  const custoMedioPorProjeto = overallApprovedBudgetsCount > 0 ? custoTotal / overallApprovedBudgetsCount : 0;
+  const custoMedioPorProjeto = approvedBudgetsCount > 0 ? custoTotal / approvedBudgetsCount : 0;
 
   const handleOpenFixedCostDialog = (cost: FixedCost | null = null) => {
     setFixedCostToEdit(cost);
@@ -218,7 +217,7 @@ export default function CostControlPage() {
       { label: "Custo Total Geral:", value: formatCurrency(custoTotal) },
       { label: "Lucro Total Geral (Receita - Custo Total):", value: formatCurrency(lucroTotalGeral) },
       { label: "Margem de Lucro Média (Lucro / Receita):", value: formatPercent(margemLucroMedia) },
-      { label: "Número de Orçamentos Aprovados (Total Geral):", value: overallApprovedBudgetsCount.toString() },
+      { label: "Número de Orçamentos Aprovados (Total Geral):", value: approvedBudgetsCount.toString() },
       { label: "Custo Médio por Projeto Aprovado (Geral):", value: formatCurrency(custoMedioPorProjeto) },
     ];
 
@@ -346,7 +345,7 @@ export default function CostControlPage() {
           <CardContent className="p-4 pt-0">
             <div className={kpiValueClasses}>{formatCurrency(overallRevenueTotal)}</div>
             <CardTitle className={kpiTitleClasses}>Receita Total</CardTitle>
-            <p className={kpiSubtitleClasses}>{overallApprovedBudgetsCount} orçamentos aprovados</p>
+            <p className={kpiSubtitleClasses}>{approvedBudgetsCount} orçamentos aprovados</p>
           </CardContent>
         </Card>
 
@@ -566,7 +565,8 @@ export default function CostControlPage() {
 
         <Card className="lg:col-span-1">
           <CardHeader className="flex flex-row items-center gap-2">
-            <ShoppingCart className="h-5 w-5 text-primary" />
+            {/* Changed ShoppingCart to Calculator to match previous request's emphasis, but can be ShoppingCart too */}
+            <Calculator className="h-5 w-5 text-primary" />
             <CardTitle>Breakdown de Custos Totais</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -606,3 +606,4 @@ export default function CostControlPage() {
   );
 }
     
+
