@@ -105,7 +105,7 @@ export function BoletoList({ boletos, isLoading }: BoletoListProps) {
           placeholder="Buscar por cliente ou ID do boleto..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full sm:max-w-sm"
+          className="w-full"
       />
       <div className="rounded-md border">
         <Table>
@@ -171,3 +171,4 @@ export function BoletoList({ boletos, isLoading }: BoletoListProps) {
     </div>
   );
 }
+
