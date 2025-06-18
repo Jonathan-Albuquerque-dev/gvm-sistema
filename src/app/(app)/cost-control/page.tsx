@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Calculator, PlusCircle, HandCoins, ReceiptText, Loader2, MoreVertical, Edit, Trash2, FileDown, FileText, CheckCircle2, Landmark, ShoppingCart } from 'lucide-react';
+import { DollarSign, Calculator, PlusCircle, HandCoins, ReceiptText, Loader2, MoreVertical, Edit, Trash2, FileDown, TrendingUp, Percent } from 'lucide-react';
 import type { Budget, VariableCost, FixedCost, CostCategory } from '@/types';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
@@ -41,22 +41,22 @@ export default function CostControlPage() {
   const [isLoadingFixedCosts, setIsLoadingFixedCosts] = useState(true);
   const [variableCosts, setVariableCosts] = useState<VariableCost[]>([]);
   const [isLoadingVariableCosts, setIsLoadingVariableCosts] = useState(true);
-  const toastHook = useToast(); // Changed: Avoid direct destructuring
+  const { toast } = useToast();
 
   const [isFixedCostDialogOpen, setIsFixedCostDialogOpen] = useState(false);
   const [fixedCostToEdit, setFixedCostToEdit] = useState<FixedCost | null>(null);
   const [isVariableCostDialogOpen, setIsVariableCostDialogOpen] = useState(false);
   const [variableCostToEdit, setVariableCostToEdit] = useState<VariableCost | null>(null);
-
-  const [approvedBudgetsThisMonthCount, setApprovedBudgetsThisMonthCount] = useState(0);
-  const [approvedBudgetsThisMonthValue, setApprovedBudgetsThisMonthValue] = useState(0);
-  const [overallApprovedBudgetsCount, setOverallApprovedBudgetsCount] = useState(0);
+  
+  // State for KPIs
   const [overallRevenueTotal, setOverallRevenueTotal] = useState(0);
-
+  const [overallApprovedBudgetsCount, setOverallApprovedBudgetsCount] = useState(0);
   const [custoMaterialTotal, setCustoMaterialTotal] = useState(0);
   const [custosVariaveisTotal, setCustosVariaveisTotal] = useState(0);
   const [custosFixosTotal, setCustosFixosTotal] = useState(0);
   const [custoTotal, setCustoTotal] = useState(0);
+  const [lucroTotalGeral, setLucroTotalGeral] = useState(0);
+  const [margemLucroMedia, setMargemLucroMedia] = useState(0);
   
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function CostControlPage() {
       setIsLoadingBudgets(false);
     }, (error) => {
       console.error("Erro ao buscar orçamentos aprovados:", error);
-      toastHook.toast({ title: "Erro ao carregar orçamentos", description: "Não foi possível buscar os orçamentos aprovados.", variant: "destructive" });
+      toast({ title: "Erro ao carregar orçamentos", description: "Não foi possível buscar os orçamentos aprovados.", variant: "destructive" });
       setIsLoadingBudgets(false);
     });
 
@@ -86,7 +86,7 @@ export default function CostControlPage() {
         setIsLoadingFixedCosts(false);
     }, (error) => {
         console.error("Erro ao buscar custos fixos:", error);
-        toastHook.toast({ title: "Erro ao carregar custos fixos", description: "Não foi possível buscar os custos fixos.", variant: "destructive"});
+        toast({ title: "Erro ao carregar custos fixos", description: "Não foi possível buscar os custos fixos.", variant: "destructive"});
         setIsLoadingFixedCosts(false);
     });
 
@@ -101,7 +101,7 @@ export default function CostControlPage() {
         setIsLoadingVariableCosts(false);
     }, (error) => {
         console.error("Erro ao buscar custos variáveis:", error);
-        toastHook.toast({ title: "Erro ao carregar custos variáveis", description: "Não foi possível buscar os custos variáveis.", variant: "destructive"});
+        toast({ title: "Erro ao carregar custos variáveis", description: "Não foi possível buscar os custos variáveis.", variant: "destructive"});
         setIsLoadingVariableCosts(false);
     });
 
@@ -113,29 +113,10 @@ export default function CostControlPage() {
   }, []); 
 
   useEffect(() => {
-    const today = new Date();
-    const currentMonthBudgets = approvedBudgets.filter(b => {
-        const budgetDateString = b.updatedAt || b.createdAt;
-         if (!budgetDateString || typeof budgetDateString !== 'string') {
-            return false;
-        }
-        try {
-            const budgetDate = parseISO(budgetDateString);
-             if (isNaN(budgetDate.getTime())) {
-                return false;
-            }
-            return isSameMonth(budgetDate, today);
-        } catch (error) {
-            return false;
-        }
-    });
-    
-    setApprovedBudgetsThisMonthCount(currentMonthBudgets.length);
-    setApprovedBudgetsThisMonthValue(currentMonthBudgets.reduce((sum, b) => sum + b.totalAmount, 0));
-    
+    const currentOverallRevenueTotal = approvedBudgets.reduce((sum, b) => sum + b.totalAmount, 0);
+    setOverallRevenueTotal(currentOverallRevenueTotal);
     setOverallApprovedBudgetsCount(approvedBudgets.length);
-    setOverallRevenueTotal(approvedBudgets.reduce((sum, b) => sum + b.totalAmount, 0));
-
+    
     const currentCustoMaterialTotal = approvedBudgets.reduce((sum, b) => sum + b.materialCostInternal, 0);
     setCustoMaterialTotal(currentCustoMaterialTotal);
     
@@ -147,6 +128,12 @@ export default function CostControlPage() {
 
     const currentCustoTotal = currentCustoMaterialTotal + currentCustosVariaveisTotal + currentCustosFixosTotal;
     setCustoTotal(currentCustoTotal);
+
+    const currentLucroTotalGeral = currentOverallRevenueTotal - currentCustoTotal;
+    setLucroTotalGeral(currentLucroTotalGeral);
+
+    const currentMargemLucroMedia = currentOverallRevenueTotal > 0 ? (currentLucroTotalGeral / currentOverallRevenueTotal) * 100 : 0;
+    setMargemLucroMedia(currentMargemLucroMedia);
 
   }, [approvedBudgets, fixedCosts, variableCosts]);
 
@@ -173,10 +160,10 @@ export default function CostControlPage() {
     if (!window.confirm(`Tem certeza que deseja excluir o custo fixo "${costDescription}"?`)) return;
     try {
       await deleteDoc(doc(db, 'fixedCosts', costId));
-      toastHook.toast({ title: 'Custo Fixo Excluído!', description: `O custo "${costDescription}" foi excluído.` });
+      toast({ title: 'Custo Fixo Excluído!', description: `O custo "${costDescription}" foi excluído.` });
     } catch (error) {
       console.error("Erro ao excluir custo fixo:", error);
-      toastHook.toast({ title: 'Erro ao Excluir', description: 'Não foi possível excluir o custo fixo.', variant: 'destructive' });
+      toast({ title: 'Erro ao Excluir', description: 'Não foi possível excluir o custo fixo.', variant: 'destructive' });
     }
   };
 
@@ -189,16 +176,16 @@ export default function CostControlPage() {
     if (!window.confirm(`Tem certeza que deseja excluir o custo variável "${costDescription}"?`)) return;
     try {
       await deleteDoc(doc(db, 'variableCosts', costId));
-      toastHook.toast({ title: 'Custo Variável Excluído!', description: `O custo "${costDescription}" foi excluído.` });
+      toast({ title: 'Custo Variável Excluído!', description: `O custo "${costDescription}" foi excluído.` });
     } catch (error) {
       console.error("Erro ao excluir custo variável:", error);
-      toastHook.toast({ title: 'Erro ao Excluir', description: 'Não foi possível excluir o custo variável.', variant: 'destructive' });
+      toast({ title: 'Erro ao Excluir', description: 'Não foi possível excluir o custo variável.', variant: 'destructive' });
     }
   };
   
   const handleGenerateCostReportPdf = () => {
     if (isLoadingBudgets || isLoadingFixedCosts || isLoadingVariableCosts) {
-      toastHook.toast({ title: "Aguarde", description: "Os dados ainda estão carregando. Tente novamente em breve.", variant: "default" });
+      toast({ title: "Aguarde", description: "Os dados ainda estão carregando. Tente novamente em breve.", variant: "default" });
       return;
     }
 
@@ -229,6 +216,8 @@ export default function CostControlPage() {
       { label: "Custos Variáveis Totais (Lançados):", value: formatCurrency(custosVariaveisTotal) },
       { label: "Custos Fixos Totais (Mensais):", value: formatCurrency(custosFixosTotal) },
       { label: "Custo Total Geral:", value: formatCurrency(custoTotal) },
+      { label: "Lucro Total Geral (Receita - Custo Total):", value: formatCurrency(lucroTotalGeral) },
+      { label: "Margem de Lucro Média (Lucro / Receita):", value: formatPercent(margemLucroMedia) },
       { label: "Número de Orçamentos Aprovados (Total Geral):", value: overallApprovedBudgetsCount.toString() },
       { label: "Custo Médio por Projeto Aprovado (Geral):", value: formatCurrency(custoMedioPorProjeto) },
     ];
@@ -317,14 +306,14 @@ export default function CostControlPage() {
     pdfDoc.text("Nota: Este relatório reflete os dados acumulados até a data de geração. Orçamentos, custos fixos e variáveis são considerados em sua totalidade.", margin, currentY, { maxWidth: pageWidth - margin * 2 });
 
     pdfDoc.save('relatorio_controle_de_custos.pdf');
-    toastHook.toast({ title: 'PDF Gerado', description: 'O relatório de controle de custos foi gerado com sucesso.' });
+    toast({ title: 'PDF Gerado', description: 'O relatório de controle de custos foi gerado com sucesso.' });
   };
 
 
   if (isLoadingBudgets || isLoadingFixedCosts || isLoadingVariableCosts) {
     return (
       <>
-        <PageHeader title="Controle de Custos" description="Análise de despesas e custos operacionais." />
+        <PageHeader title="Controle de Custos" description="Visão geral de receitas, custos e lucratividade." />
         <div className="flex flex-col items-center justify-center h-64 p-8 bg-card rounded-lg shadow">
           <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
           <p className="text-muted-foreground">Carregando dados de custos...</p>
@@ -337,7 +326,7 @@ export default function CostControlPage() {
 
   return (
     <>
-      <PageHeader title="Controle de Custos" description="Análise de despesas e custos operacionais.">
+      <PageHeader title="Controle de Custos" description="Visão geral de receitas, custos e lucratividade.">
         <Button 
           onClick={handleGenerateCostReportPdf} 
           variant="outline" 
@@ -347,17 +336,17 @@ export default function CostControlPage() {
         </Button>
       </PageHeader>
 
-      <div className="grid gap-4 md:grid-cols-2 mb-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
         <Card className={kpiCardBaseClasses}>
           <CardHeader className="p-4 pb-0">
             <div className={cn(kpiIconWrapperBaseClasses, "bg-[hsl(var(--status-success-background))] text-[hsl(var(--status-success-foreground))]")}>
-              <CheckCircle2 className="h-6 w-6" />
+              <DollarSign className="h-6 w-6" />
             </div>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className={kpiValueClasses}>{approvedBudgetsThisMonthCount}</div>
-            <CardTitle className={kpiTitleClasses}>Orçamentos Aprovados no Mês</CardTitle>
-            <p className={kpiSubtitleClasses}>Faturamento no mês: {formatCurrency(approvedBudgetsThisMonthValue)}</p>
+            <div className={kpiValueClasses}>{formatCurrency(overallRevenueTotal)}</div>
+            <CardTitle className={kpiTitleClasses}>Receita Total</CardTitle>
+            <p className={kpiSubtitleClasses}>{overallApprovedBudgetsCount} orçamentos aprovados</p>
           </CardContent>
         </Card>
 
@@ -370,7 +359,33 @@ export default function CostControlPage() {
           <CardContent className="p-4 pt-0">
             <div className={kpiValueClasses}>{formatCurrency(custoTotal)}</div>
             <CardTitle className={kpiTitleClasses}>Custo Total</CardTitle>
-            <p className={kpiSubtitleClasses}>Material + Fixo + Variável (Geral)</p>
+            <p className={kpiSubtitleClasses}>Material + Fixo + Variável</p>
+          </CardContent>
+        </Card>
+
+        <Card className={kpiCardBaseClasses}>
+          <CardHeader className="p-4 pb-0">
+            <div className={cn(kpiIconWrapperBaseClasses, "bg-[hsl(var(--status-info-background))] text-[hsl(var(--status-info-foreground))]")}>
+              <TrendingUp className="h-6 w-6" />
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <div className={kpiValueClasses}>{formatCurrency(lucroTotalGeral)}</div>
+            <CardTitle className={kpiTitleClasses}>Lucro Total</CardTitle>
+            <p className={kpiSubtitleClasses}>Receita - Custos</p>
+          </CardContent>
+        </Card>
+        
+        <Card className={kpiCardBaseClasses}>
+          <CardHeader className="p-4 pb-0">
+            <div className={cn(kpiIconWrapperBaseClasses, "bg-[hsl(var(--status-purple-background))] text-[hsl(var(--status-purple-foreground))]")}>
+              <Percent className="h-6 w-6" />
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <div className={kpiValueClasses}>{formatPercent(margemLucroMedia)}</div>
+            <CardTitle className={kpiTitleClasses}>Margem Média</CardTitle>
+            <p className={kpiSubtitleClasses}>Margem de lucro</p>
           </CardContent>
         </Card>
       </div>
