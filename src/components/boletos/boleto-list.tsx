@@ -121,8 +121,8 @@ export function BoletoList({ boletos, isLoading }: BoletoListProps) {
   
   const filterOptions: {value: typeof viewFilter, label: string}[] = [
     {value: 'ativos', label: 'Ativos (Pendente/Vencido)'},
-    {value: 'quitados', label: 'Quitados'},
-    {value: 'cancelados', label: 'Cancelados'},
+    {value: 'quitado', label: 'Quitados'},
+    {value: 'cancelado', label: 'Cancelados'},
     {value: 'pendente', label: 'Pendentes'},
     {value: 'vencido', label: 'Vencidos'},
     {value: 'proximo', label: 'Próximos Vencimentos'},
