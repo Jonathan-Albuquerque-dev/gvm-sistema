@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Edit3, Trash2, MoreVertical, Eye, Loader2, ReceiptText } from 'lucide-react';
 import type { Boleto, BoletoParcelaStatus } from '@/types';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
@@ -21,42 +22,52 @@ interface BoletoListProps {
   isLoading: boolean;
 }
 
-const getAggregatedStatus = (boleto: Boleto): { text: string, variant: "default" | "secondary" | "destructive" | "outline" } => {
+type AggregatedStatusKey = "quitado" | "vencido" | "pendente" | "cancelado" | "proximo";
+
+const getAggregatedStatus = (boleto: Boleto): { text: string, key: AggregatedStatusKey, variant: "default" | "secondary" | "destructive" | "outline" } => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Compare dates only
+    today.setHours(0, 0, 0, 0); 
 
     let allPaid = true;
     let hasOverdue = false;
     let nextDueDate: Date | null = null;
+    let allCancelled = boleto.installments.length > 0; // Assume cancelled if there are installments
 
     for (const installment of boleto.installments) {
-        if (installment.status !== 'pago' && installment.status !== 'cancelado') {
+        if (installment.status !== 'pago') {
             allPaid = false;
+        }
+        if (installment.status !== 'cancelado') {
+            allCancelled = false;
+        }
+
+        if (installment.status !== 'pago' && installment.status !== 'cancelado') {
             const dueDate = parseISO(installment.dueDate);
-            if (dueDate < today && installment.status !== 'pago') {
+            if (dueDate < today) { // No need to check status here, if not paid/cancelled and due date passed, it's effectively overdue
                 hasOverdue = true;
             }
-            if (!nextDueDate || dueDate < nextDueDate) {
-                if (installment.status === 'pendente' || installment.status === 'vencido') {
-                    nextDueDate = dueDate;
-                }
+            if ((!nextDueDate || dueDate < nextDueDate) && installment.status === 'pendente') {
+                 nextDueDate = dueDate;
             }
         }
     }
 
-    if (allPaid) return { text: "Quitado", variant: "default" }; // Green-like
-    if (hasOverdue) return { text: "Vencido", variant: "destructive" }; // Red
-    if (nextDueDate) return { text: `Próx: ${format(nextDueDate, 'dd/MM/yy')}`, variant: "outline" }; // Blue/Info like
+    if (allPaid && boleto.installments.length > 0) return { text: "Quitado", key: "quitado", variant: "default" };
+    if (allCancelled) return {text: "Cancelado", key: "cancelado", variant: "secondary"};
+    if (hasOverdue) return { text: "Vencido", key: "vencido", variant: "destructive" };
+    if (nextDueDate) return { text: `Próx: ${format(nextDueDate, 'dd/MM/yy')}`, key: "proximo", variant: "outline" }; 
     
-    const allCancelled = boleto.installments.every(inst => inst.status === 'cancelado');
-    if (allCancelled && boleto.installments.length > 0) return {text: "Cancelado", variant: "secondary"};
+    // If no specific status, but not all paid or all cancelled, consider it pending
+    if (boleto.installments.length > 0 && !allPaid && !allCancelled) return { text: "Pendente", key: "pendente", variant: "secondary" };
 
-    return { text: "Pendente", variant: "secondary" }; // Yellow-like
+    // Fallback for boletos with no installments or undefined states
+    return { text: "Indefinido", key: "pendente", variant: "secondary" };
 };
 
 
 export function BoletoList({ boletos, isLoading }: BoletoListProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewFilter, setViewFilter] = useState<AggregatedStatusKey | 'todos' | 'ativos'>('ativos');
   const { toast } = useToast();
   const router = useRouter();
 
@@ -86,8 +97,17 @@ export function BoletoList({ boletos, isLoading }: BoletoListProps) {
   
   const filteredBoletos = boletos.filter(boleto => {
     const searchString = boleto.clientName?.toLowerCase() || '';
-    return searchString.includes(searchTerm.toLowerCase()) ||
-           boleto.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = searchString.includes(searchTerm.toLowerCase()) ||
+                          boleto.id.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchesSearch) return false;
+
+    const statusInfo = getAggregatedStatus(boleto);
+
+    if (viewFilter === 'todos') return true;
+    if (viewFilter === 'ativos') {
+        return statusInfo.key === 'pendente' || statusInfo.key === 'vencido' || statusInfo.key === 'proximo';
+    }
+    return statusInfo.key === viewFilter;
   });
 
   if (isLoading && boletos.length === 0) {
@@ -98,15 +118,37 @@ export function BoletoList({ boletos, isLoading }: BoletoListProps) {
       </div>
     );
   }
+  
+  const filterOptions: {value: typeof viewFilter, label: string}[] = [
+    {value: 'ativos', label: 'Ativos (Pendente/Vencido)'},
+    {value: 'quitados', label: 'Quitados'},
+    {value: 'cancelados', label: 'Cancelados'},
+    {value: 'pendente', label: 'Pendentes'},
+    {value: 'vencido', label: 'Vencidos'},
+    {value: 'proximo', label: 'Próximos Vencimentos'},
+    {value: 'todos', label: 'Todos os Boletos'},
+  ]
 
   return (
      <div className="space-y-4">
-      <Input 
-          placeholder="Buscar por cliente ou ID do boleto..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full"
-      />
+      <div className="flex flex-col sm:flex-row gap-4">
+        <Input 
+            placeholder="Buscar por cliente ou ID do boleto..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full" 
+        />
+        <Select value={viewFilter} onValueChange={(value: typeof viewFilter) => setViewFilter(value)}>
+            <SelectTrigger className="w-full sm:w-[280px]">
+                <SelectValue placeholder="Filtrar por status..." />
+            </SelectTrigger>
+            <SelectContent>
+                {filterOptions.map(opt => (
+                     <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+      </div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -158,13 +200,18 @@ export function BoletoList({ boletos, isLoading }: BoletoListProps) {
             ) : (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center">
-                  Nenhum boleto encontrado. {boletos.length === 0 && !searchTerm && !isLoading ? "Cadastre o primeiro." : ""}
+                  Nenhum boleto encontrado para o filtro "{filterOptions.find(f=>f.value === viewFilter)?.label || viewFilter}"
+                  {searchTerm && ` e busca "${searchTerm}"`}.
+                  {boletos.length === 0 && !searchTerm && !isLoading ? " Cadastre o primeiro." : ""}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
            {filteredBoletos.length === 0 && (boletos.length > 0 || searchTerm) && !isLoading && (
-             <TableCaption>Nenhum boleto encontrado para os filtros aplicados.</TableCaption>
+             <TableCaption>
+                Nenhum boleto encontrado para o filtro "{filterOptions.find(f=>f.value === viewFilter)?.label || viewFilter}"
+                {searchTerm && ` e busca "${searchTerm}"`}.
+            </TableCaption>
            )}
         </Table>
       </div>
