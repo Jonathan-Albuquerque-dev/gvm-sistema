@@ -7,13 +7,16 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { BoletoList } from '@/components/boletos/boleto-list';
-import { PlusCircle, ReceiptText, Landmark, CalendarCheck2, Loader2, AlertTriangle as AlertTriangleIcon, CalendarClock, FileWarning } from 'lucide-react';
+import { PlusCircle, ReceiptText, Landmark, CalendarCheck2, Loader2, AlertTriangle as AlertTriangleIcon, CalendarClock, FileWarning, FileDown } from 'lucide-react';
 import type { Boleto } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format, isSameMonth, parseISO, isBefore, addDays, startOfDay, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
 
 export default function BoletosPage() {
   const [boletos, setBoletos] = useState<Boleto[]>([]);
@@ -57,7 +60,6 @@ export default function BoletosPage() {
       boleto.installments.forEach(installment => {
         const dueDate = startOfDay(parseISO(installment.dueDate));
 
-        // Calculations for "A Receber Este Mês" and "Total Geral a Receber"
         if (installment.status === 'pendente' || installment.status === 'vencido') {
           totalToReceiveOverall += installment.value;
           if (isSameMonth(dueDate, today)) {
@@ -65,19 +67,14 @@ export default function BoletosPage() {
           }
         }
 
-        // Calculations for "Boletos Vencidos" (Count and Value)
         if (installment.status === 'vencido') {
           totalOverdueAmount += installment.value;
           hasOverdueInstallmentInBoleto = true;
         } else if (installment.status === 'pendente' && isBefore(dueDate, today)) {
-          // Consider pendente as vencido if due date is in the past (Firestore update might be pending)
-          // This part might be redundant if status is reliably updated to 'vencido'
-          // but kept for safety for now.
           totalOverdueAmount += installment.value;
           hasOverdueInstallmentInBoleto = true;
         }
         
-        // Calculations for "Boletos a Vencer (Próximos 5 dias)"
         if (installment.status === 'pendente') {
           const daysDiff = differenceInDays(dueDate, today);
           if (daysDiff >= 0 && daysDiff <= 5) {
@@ -109,6 +106,95 @@ export default function BoletosPage() {
 
   const formatCurrency = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+  const getAggregatedStatusForPdf = (boleto: Boleto): string => {
+    const today = startOfDay(new Date());
+    let allPaid = true;
+    let hasOverdue = false;
+    let nextDueDate: Date | null = null;
+
+    for (const installment of boleto.installments) {
+        if (installment.status !== 'pago' && installment.status !== 'cancelado') {
+            allPaid = false;
+            const dueDate = parseISO(installment.dueDate);
+            if (dueDate < today && installment.status !== 'pago') {
+                hasOverdue = true;
+            }
+            if (!nextDueDate || dueDate < nextDueDate) {
+                if (installment.status === 'pendente' || installment.status === 'vencido') {
+                    nextDueDate = dueDate;
+                }
+            }
+        }
+    }
+
+    if (allPaid) return "Quitado";
+    if (hasOverdue) return "Vencido";
+    if (nextDueDate) return `Próx: ${format(nextDueDate, 'dd/MM/yy', { locale: ptBR })}`;
+    
+    const allCancelled = boleto.installments.every(inst => inst.status === 'cancelado');
+    if (allCancelled && boleto.installments.length > 0) return "Cancelado";
+
+    return "Pendente";
+  };
+
+  const handleGenerateAllBoletosPdf = () => {
+    if (boletos.length === 0) {
+      toast({
+          title: "Nenhum boleto para listar",
+          description: "Não há boletos cadastrados para gerar o PDF.",
+          variant: "default"
+      });
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 14;
+    let currentY = 22;
+
+    doc.setFontSize(18);
+    doc.text('Relatório de Boletos', margin, currentY);
+    currentY += 8;
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Relatório gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, margin, currentY);
+    currentY += 10;
+    
+    const tableColumn = ["ID Boleto", "Cliente", "Nº Parc.", "Valor Total", "Venc. 1ª Parc.", "Status"];
+    const tableRows: (string | number)[][] = [];
+
+    boletos.forEach(boleto => {
+      const boletoDataRow = [
+        boleto.id.substring(0, 8) + '...',
+        boleto.clientName,
+        boleto.numberOfInstallments,
+        formatCurrency(boleto.totalAmount),
+        format(parseISO(boleto.initialDueDate), "dd/MM/yyyy", { locale: ptBR }),
+        getAggregatedStatusForPdf(boleto)
+      ];
+      tableRows.push(boletoDataRow);
+    });
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: currentY,
+      headStyles: { fillColor: [22, 160, 133] }, // Example primary color
+      columnStyles: {
+        0: { cellWidth: 25 }, // ID
+        1: { cellWidth: 'auto' }, // Cliente
+        2: { cellWidth: 20, halign: 'center' }, // Nº Parc.
+        3: { cellWidth: 35, halign: 'right' }, // Valor Total
+        4: { cellWidth: 30, halign: 'center' }, // Venc. 1ª Parc.
+        5: { cellWidth: 25, halign: 'center' }, // Status
+      },
+    });
+    
+    doc.save('relatorio_geral_boletos.pdf');
+    toast({ title: 'PDF Gerado', description: 'O relatório de boletos foi gerado com sucesso.' });
+  };
+
+
   if (isLoading && boletos.length === 0) { 
     return (
       <>
@@ -125,11 +211,17 @@ export default function BoletosPage() {
   return (
     <>
       <PageHeader title="Boletos" description="Gerencie seus boletos a receber.">
-        <Link href="/boletos/new">
-          <Button disabled={isLoading}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Novo Boleto
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button onClick={handleGenerateAllBoletosPdf} variant="outline" disabled={isLoading || boletos.length === 0}>
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+            Gerar PDF
           </Button>
-        </Link>
+          <Link href="/boletos/new">
+            <Button disabled={isLoading}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Novo Boleto
+            </Button>
+          </Link>
+        </div>
       </PageHeader>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-6">
@@ -204,3 +296,6 @@ export default function BoletosPage() {
     </>
   );
 }
+
+
+    
