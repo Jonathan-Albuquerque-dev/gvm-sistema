@@ -46,36 +46,42 @@ const getAggregatedStatus = (boleto: Boleto): { text: string, key: AggregatedSta
             allCancelled = false;
         }
 
-        if (installment.status !== 'cancelado') { // Only consider non-cancelled for overdue/next due
+        // Only consider non-cancelled for overdue/next due
+        if (installment.status !== 'cancelado') { 
             const dueDate = startOfDay(parseISO(installment.dueDate));
             if (installment.status === 'pendente') {
                 hasPendingInstallment = true;
-                if (isBefore(dueDate, today)) {
+                if (isBefore(dueDate, today)) { // Due date is in the past
                     hasOverdueInstallment = true; 
-                } else { 
+                } else { // Due date is today or in the future
                     if (!nextDueDate || isBefore(dueDate, nextDueDate)) {
                         nextDueDate = dueDate;
                     }
                 }
             } else if (installment.status === 'vencido') {
-                hasOverdueInstallment = true;
+                hasOverdueInstallment = true; // Explicitly marked as overdue
             }
         }
     }
 
     if (allPaid) return { text: "Quitado", key: "quitado", variant: "default" };
-    if (allCancelled) return { text: "Cancelado", key: "cancelado", variant: "secondary" };
+    if (allCancelled) return { text: "Cancelado", key: "cancelado", variant: "secondary" }; // Check after allPaid
     
-    if (hasOverdueInstallment) return { text: "Vencido", key: "vencido", variant: "destructive" };
+    if (hasOverdueInstallment) return { text: "Vencido", key: "vencido", variant: "destructive" }; // Check after allCancelled
+    
     if (nextDueDate) {
       const daysDiff = differenceInDays(nextDueDate, today);
-      if (daysDiff >=0 && daysDiff <= 5) { // If due in 0-5 days
+      if (daysDiff >= 0 && daysDiff <= 5) { 
         return { text: `Próx: ${format(nextDueDate, 'dd/MM/yy', { locale: ptBR })}`, key: "proximo", variant: "outline" }; 
       }
     }
-    if (hasPendingInstallment) return { text: "Pendente", key: "pendente", variant: "secondary" }; // General pending if not overdue or next due soon
     
-    return { text: "Pendente", key: "pendente", variant: "secondary" }; // Fallback / Default if no other specific status
+    if (hasPendingInstallment) return { text: "Pendente", key: "pendente", variant: "secondary" };
+    
+    // Fallback for cases where it's not paid, not cancelled, not overdue, not due soon, but might not have pending (e.g. all errorneous data)
+    // Or if it only had cancelled installments initially, this would be the state.
+    // Given the logic, this should ideally be caught by `allCancelled` or other specific states.
+    return { text: "Pendente", key: "pendente", variant: "secondary" }; 
 };
 
 
@@ -144,7 +150,7 @@ export function BoletoList({ boletos, isLoading }: BoletoListProps) {
     {value: 'vencido', label: 'Vencidos'},
     {value: 'proximo', label: 'Próximos Vencimentos'},
     {value: 'todos', label: 'Todos os Boletos'},
-  ]
+  ];
 
   return (
      <div className="space-y-4">
@@ -153,18 +159,20 @@ export function BoletoList({ boletos, isLoading }: BoletoListProps) {
             placeholder="Buscar por cliente ou ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full sm:w-64" 
+            className="w-full sm:w-3/5" 
         />
-        <Select value={viewFilter} onValueChange={(value: typeof viewFilter) => setViewFilter(value)}>
-            <SelectTrigger className="w-full sm:flex-1">
-                <SelectValue placeholder="Filtrar por status..." />
-            </SelectTrigger>
-            <SelectContent>
-                {filterOptions.map(opt => (
-                     <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
+        <div className="w-full sm:w-2/5">
+          <Select value={viewFilter} onValueChange={(value: typeof viewFilter) => setViewFilter(value)}>
+              <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Filtrar por status..." />
+              </SelectTrigger>
+              <SelectContent>
+                  {filterOptions.map(opt => (
+                       <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+              </SelectContent>
+          </Select>
+        </div>
       </div>
       <div className="rounded-md border">
         <Table>
