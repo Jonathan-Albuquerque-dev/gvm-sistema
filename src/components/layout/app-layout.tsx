@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, FileText, Package, Users, BarChartBig, Calculator, Building, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, Package, Users, BarChartBig, Calculator, Building, LogOut, ReceiptText } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation'; 
 import { useAuth } from '@/hooks/useAuth';
 import { auth } from '@/lib/firebase';
@@ -31,9 +31,10 @@ interface AppLayoutProps {
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/budgets', label: 'Orçamentos', icon: FileText },
+  { href: '/boletos', label: 'Boletos', icon: ReceiptText },
   { href: '/products', label: 'Produtos', icon: Package },
   { href: '/clients', label: 'Clientes', icon: Users },
-  { href: '/employees', label: 'Funcionários', icon: Users }, // Make sure this matches the folder name
+  { href: '/employees', label: 'Funcionários', icon: Users },
   { href: '/reports', label: 'Relatórios', icon: BarChartBig },
   { href: '/cost-control', label: 'Controle de Custos', icon: Calculator },
 ];

@@ -107,3 +107,26 @@ export interface FixedCost {
   // userId?: string;
 }
 
+export type BoletoParcelaStatus = 'pendente' | 'pago' | 'vencido' | 'cancelado';
+
+export interface BoletoParcela {
+  parcelNumber: number;
+  value: number;
+  dueDate: string; // ISO Date String
+  status: BoletoParcelaStatus;
+  paymentDate?: string; // ISO Date String, when it was paid
+}
+
+export interface Boleto {
+  id: string; // Firestore document ID
+  clientId: string;
+  clientName: string;
+  totalAmount: number;
+  numberOfInstallments: number;
+  initialDueDate: string; // ISO Date String for the first installment
+  installments: BoletoParcela[];
+  observations?: string;
+  createdAt: string; // ISO Date String
+  updatedAt?: string; // ISO Date String
+  // userId?: string;
+}
