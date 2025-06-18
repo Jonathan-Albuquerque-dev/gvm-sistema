@@ -36,12 +36,12 @@ const categoryTranslations: Record<CostCategory, string> = {
 
 export default function CostControlPage() {
   const [approvedBudgets, setApprovedBudgets] = useState<Budget[]>([]);
-  const [isLoadingBudgets, setIsLoadingBudgets] useState(true);
+  const [isLoadingBudgets, setIsLoadingBudgets] = useState(true);
   const [fixedCosts, setFixedCosts] = useState<FixedCost[]>([]);
   const [isLoadingFixedCosts, setIsLoadingFixedCosts] = useState(true);
   const [variableCosts, setVariableCosts] = useState<VariableCost[]>([]);
   const [isLoadingVariableCosts, setIsLoadingVariableCosts] = useState(true);
-  const { toast } = useToast();
+  const toastHook = useToast(); // Changed: Avoid direct destructuring
 
   const [isFixedCostDialogOpen, setIsFixedCostDialogOpen] = useState(false);
   const [fixedCostToEdit, setFixedCostToEdit] = useState<FixedCost | null>(null);
@@ -71,7 +71,7 @@ export default function CostControlPage() {
       setIsLoadingBudgets(false);
     }, (error) => {
       console.error("Erro ao buscar orçamentos aprovados:", error);
-      toast({ title: "Erro ao carregar orçamentos", description: "Não foi possível buscar os orçamentos aprovados.", variant: "destructive" });
+      toastHook.toast({ title: "Erro ao carregar orçamentos", description: "Não foi possível buscar os orçamentos aprovados.", variant: "destructive" });
       setIsLoadingBudgets(false);
     });
 
@@ -86,7 +86,7 @@ export default function CostControlPage() {
         setIsLoadingFixedCosts(false);
     }, (error) => {
         console.error("Erro ao buscar custos fixos:", error);
-        toast({ title: "Erro ao carregar custos fixos", description: "Não foi possível buscar os custos fixos.", variant: "destructive"});
+        toastHook.toast({ title: "Erro ao carregar custos fixos", description: "Não foi possível buscar os custos fixos.", variant: "destructive"});
         setIsLoadingFixedCosts(false);
     });
 
@@ -101,7 +101,7 @@ export default function CostControlPage() {
         setIsLoadingVariableCosts(false);
     }, (error) => {
         console.error("Erro ao buscar custos variáveis:", error);
-        toast({ title: "Erro ao carregar custos variáveis", description: "Não foi possível buscar os custos variáveis.", variant: "destructive"});
+        toastHook.toast({ title: "Erro ao carregar custos variáveis", description: "Não foi possível buscar os custos variáveis.", variant: "destructive"});
         setIsLoadingVariableCosts(false);
     });
 
@@ -110,7 +110,7 @@ export default function CostControlPage() {
       unsubscribeFixedCosts();
       unsubscribeVariableCosts();
     };
-  }, []); // Changed dependency array from [toast] to []
+  }, []); 
 
   useEffect(() => {
     const today = new Date();
@@ -173,10 +173,10 @@ export default function CostControlPage() {
     if (!window.confirm(`Tem certeza que deseja excluir o custo fixo "${costDescription}"?`)) return;
     try {
       await deleteDoc(doc(db, 'fixedCosts', costId));
-      toast({ title: 'Custo Fixo Excluído!', description: `O custo "${costDescription}" foi excluído.` });
+      toastHook.toast({ title: 'Custo Fixo Excluído!', description: `O custo "${costDescription}" foi excluído.` });
     } catch (error) {
       console.error("Erro ao excluir custo fixo:", error);
-      toast({ title: 'Erro ao Excluir', description: 'Não foi possível excluir o custo fixo.', variant: 'destructive' });
+      toastHook.toast({ title: 'Erro ao Excluir', description: 'Não foi possível excluir o custo fixo.', variant: 'destructive' });
     }
   };
 
@@ -189,16 +189,16 @@ export default function CostControlPage() {
     if (!window.confirm(`Tem certeza que deseja excluir o custo variável "${costDescription}"?`)) return;
     try {
       await deleteDoc(doc(db, 'variableCosts', costId));
-      toast({ title: 'Custo Variável Excluído!', description: `O custo "${costDescription}" foi excluído.` });
+      toastHook.toast({ title: 'Custo Variável Excluído!', description: `O custo "${costDescription}" foi excluído.` });
     } catch (error) {
       console.error("Erro ao excluir custo variável:", error);
-      toast({ title: 'Erro ao Excluir', description: 'Não foi possível excluir o custo variável.', variant: 'destructive' });
+      toastHook.toast({ title: 'Erro ao Excluir', description: 'Não foi possível excluir o custo variável.', variant: 'destructive' });
     }
   };
   
   const handleGenerateCostReportPdf = () => {
     if (isLoadingBudgets || isLoadingFixedCosts || isLoadingVariableCosts) {
-      toast({ title: "Aguarde", description: "Os dados ainda estão carregando. Tente novamente em breve.", variant: "default" });
+      toastHook.toast({ title: "Aguarde", description: "Os dados ainda estão carregando. Tente novamente em breve.", variant: "default" });
       return;
     }
 
@@ -317,7 +317,7 @@ export default function CostControlPage() {
     pdfDoc.text("Nota: Este relatório reflete os dados acumulados até a data de geração. Orçamentos, custos fixos e variáveis são considerados em sua totalidade.", margin, currentY, { maxWidth: pageWidth - margin * 2 });
 
     pdfDoc.save('relatorio_controle_de_custos.pdf');
-    toast({ title: 'PDF Gerado', description: 'O relatório de controle de custos foi gerado com sucesso.' });
+    toastHook.toast({ title: 'PDF Gerado', description: 'O relatório de controle de custos foi gerado com sucesso.' });
   };
 
 
@@ -347,11 +347,11 @@ export default function CostControlPage() {
         </Button>
       </PageHeader>
 
-      <div className="grid gap-4 md:grid-cols-2 mb-6"> {/* Changed to md:grid-cols-2 */}
+      <div className="grid gap-4 md:grid-cols-2 mb-6">
         <Card className={kpiCardBaseClasses}>
           <CardHeader className="p-4 pb-0">
             <div className={cn(kpiIconWrapperBaseClasses, "bg-[hsl(var(--status-success-background))] text-[hsl(var(--status-success-foreground))]")}>
-              <CheckCircle2 className="h-6 w-6" /> {/* Icon changed */}
+              <CheckCircle2 className="h-6 w-6" />
             </div>
           </CardHeader>
           <CardContent className="p-4 pt-0">
@@ -551,7 +551,7 @@ export default function CostControlPage() {
 
         <Card className="lg:col-span-1">
           <CardHeader className="flex flex-row items-center gap-2">
-            <ShoppingCart className="h-5 w-5 text-primary" /> {/* Changed icon */}
+            <ShoppingCart className="h-5 w-5 text-primary" />
             <CardTitle>Breakdown de Custos Totais</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
